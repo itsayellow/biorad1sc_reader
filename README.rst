@@ -33,6 +33,12 @@ Current Status
     * I'm currently unwilling to support python2
     * If you'd like python2 support, it's DIY. :)
 
+*************
+Documentation
+*************
+
+* `File Specification for Bio-Rad 1sc files <https://github.com/itsayellow/biorad1sc_reader_doc/blob/master/file_1sc_spec.md>`_
+
 ********
 Examples
 ********
