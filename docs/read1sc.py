@@ -407,8 +407,8 @@ def process_payload_type0(in_bytes, payload_idx, file=sys.stdout, quiet=False):
             all_uint16s.extend(test_uint16s[0:4])
             byte_idx = byte_idx + 8
 
-            if test_uint16s[4] == 0 or test_uint16s[5] == 0:
-                raise Exception("ERROR: Unexpected Jump Field (Type 0) ending")
+            #if test_uint16s[4] == 0 or test_uint16s[5] == 0:
+            #    raise Exception("ERROR: Unexpected Jump Field (Type 0) ending")
 
             break
         else:
