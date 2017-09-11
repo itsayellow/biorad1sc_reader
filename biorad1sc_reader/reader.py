@@ -6,14 +6,7 @@ import os.path
 import struct
 #import tictoc
 
-try:
-    from PIL import Image
-except:
-    HAS_PIL = False
-else:
-    HAS_PIL = True
-
-
+from PIL import Image
 try:
     import numpy as np
 except:
@@ -22,19 +15,11 @@ else:
     HAS_NUMPY = True
 
 
-HAS_NUMPY=False
-
-
 # for debugging (DELETEME)
 if HAS_NUMPY:
     print("YES Numpy")
 else:
     print("No Numpy")
-
-if HAS_PIL:
-    print("YES PIL")
-else:
-    print("No PIL")
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
@@ -183,20 +168,16 @@ class Reader():
         print("save_img_as_tiff: START")
         #mytimer = tictoc.Timer()
 
-        if HAS_PIL:
-            (img_x, img_y, img_data) = self.get_img_data(invert=invert)
+        (img_x, img_y, img_data) = self.get_img_data(invert=invert)
 
-            # save to tiff file
-            save_u16_to_tiff(
-                    img_data,
-                    (img_x, img_y),
-                    tiff_filename
-                    )
+        # save to tiff file
+        save_u16_to_tiff(
+                img_data,
+                (img_x, img_y),
+                tiff_filename
+                )
 
-            #mytimer.eltime_pr("save_img_as_tiff END\t")
-            return True
-        else:
-            return False
+        #mytimer.eltime_pr("save_img_as_tiff END\t")
         
 
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
@@ -205,60 +186,56 @@ class Reader():
         print("save_img_as_tiff_sc START")
         #mytimer = tictoc.Timer()
 
-        if HAS_PIL:
-            (img_x, img_y, img_data) = self.get_img_data(invert=invert)
+        (img_x, img_y, img_data) = self.get_img_data(invert=invert)
 
-            # TODO: find min/max based on %pixels above max, below min
+        # TODO: find min/max based on %pixels above max, below min
 
-            # image data min/max
-            img_min = min(img_data)
-            img_max = max(img_data)
+        # image data min/max
+        img_min = min(img_data)
+        img_max = max(img_data)
 
-            # scale min/max to scale brightness
-            if invert:
-                # anchor at img_max if inverted img data
-                #img_max = img_max
-                img_min = img_max - (img_max - img_min) * imgsc
-            else:
-                # anchor at img_min if inverted img data
-                #img_min = img_min
-                img_max = img_min + (img_max - img_min) * imgsc
-
-            img_span = (img_max - img_min)
-
-            if HAS_NUMPY:
-                # scale brightness of pixels
-                # linear map: img_min-img_max to 0-(2**16-1)
-                # make sure we use signed integer dtype for numpy
-                #   unsigned dtypes cause negative values to wrap to large pos
-                #   signed dtypes automatically adjust to size of value,
-                #       positive or negative
-                img_data = np.array(img_data,dtype='int32')
-                img_data_scale = (img_data-img_min)*(2**16-1)/img_span
-
-                # enforce max and min via clipping
-                np.clip(img_data_scale, 0, 2**16-1, out=img_data_scale)
-                # cast back to int16 after clipping
-                img_data_scale = img_data_scale.astype('uint16')
-            else:
-                # scale brightness of pixels
-                # linear map: img_min-img_max to 0-(2**16-1)
-                img_data_scale = [int((x-img_min)*(2**16-1)/img_span) for x in img_data]
-
-                # enforce max and min via clipping
-                img_data_scale = [min(max(x,0),2**16-1) for x in img_data_scale]
-
-            # save to tiff file
-            save_u16_to_tiff(
-                    img_data_scale,
-                    (img_x, img_y),
-                    tiff_filename
-                    )
-
-            #mytimer.eltime_pr("save_img_as_tiff_sc END\t")
-            return True
+        # scale min/max to scale brightness
+        if invert:
+            # anchor at img_max if inverted img data
+            #img_max = img_max
+            img_min = img_max - (img_max - img_min) * imgsc
         else:
-            return False
+            # anchor at img_min if inverted img data
+            #img_min = img_min
+            img_max = img_min + (img_max - img_min) * imgsc
+
+        img_span = (img_max - img_min)
+
+        if HAS_NUMPY:
+            # scale brightness of pixels
+            # linear map: img_min-img_max to 0-(2**16-1)
+            # make sure we use signed integer dtype for numpy
+            #   unsigned dtypes cause negative values to wrap to large pos
+            #   signed dtypes automatically adjust to size of value,
+            #       positive or negative
+            img_data = np.array(img_data,dtype='int32')
+            img_data_scale = (img_data-img_min)*(2**16-1)/img_span
+
+            # enforce max and min via clipping
+            np.clip(img_data_scale, 0, 2**16-1, out=img_data_scale)
+            # cast back to int16 after clipping
+            img_data_scale = img_data_scale.astype('uint16')
+        else:
+            # scale brightness of pixels
+            # linear map: img_min-img_max to 0-(2**16-1)
+            img_data_scale = [int((x-img_min)*(2**16-1)/img_span) for x in img_data]
+
+            # enforce max and min via clipping
+            img_data_scale = [min(max(x,0),2**16-1) for x in img_data_scale]
+
+        # save to tiff file
+        save_u16_to_tiff(
+                img_data_scale,
+                (img_x, img_y),
+                tiff_filename
+                )
+
+        #mytimer.eltime_pr("save_img_as_tiff_sc END\t")
         
 
     def get_img_metadata(self):
