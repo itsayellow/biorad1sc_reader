@@ -15,7 +15,7 @@ setup(
         description='Allows reading Bio-Rad *.1sc image/analysis files.',
         long_description=long_description,
         url='http://github.com/itsayellow/biorad1sc_reader/',
-        author='Matthew Clapp',
+        author='Matthew A. Clapp',
         author_email='itsayellow+dev@gmail.com',
         license='MIT',
         classifiers=[
