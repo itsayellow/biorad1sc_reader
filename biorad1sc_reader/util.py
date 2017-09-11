@@ -29,7 +29,7 @@ def bio1sc2tiff_process_command_line(argv):
     # switches/options:
     parser.add_argument(
         '-s', '--scale', action='store_true',
-        help='Scale brightness of output image to maximize dynamic range' \
+        help='Scale brightness of output image to maximize dynamic range ' \
                 'between darkest and lightest pixels in input file.')
     parser.add_argument(
         '-i', '--invert', action='store_true',
