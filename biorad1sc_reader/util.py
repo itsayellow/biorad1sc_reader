@@ -17,7 +17,7 @@ def bio1sc2tiff_process_command_line(argv):
 
     # initialize the parser object:
     parser = argparse.ArgumentParser(
-            description="Convert input 1sc file to TIFF image.")
+            description="Convert input 1sc file(s) to TIFF image(s).")
 
     # specifying nargs= puts outputs of parser in list (even if nargs=1)
 
