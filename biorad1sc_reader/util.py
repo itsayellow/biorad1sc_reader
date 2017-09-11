@@ -22,7 +22,7 @@ def bio1sc2tiff_process_command_line(argv):
     # specifying nargs= puts outputs of parser in list (even if nargs=1)
 
     # required arguments
-    parser.add_argument('src_1sc_file',
+    parser.add_argument('src_1sc_file', nargs='+',
             help="Source 1sc file."
             )
 
@@ -45,28 +45,34 @@ def bio1sc2tiff_process_command_line(argv):
 
 def bio1sc2tiff_main(argv=None):
     args = bio1sc2tiff_process_command_line(argv)
-    print(args)
-  
-    if args.output_filename:
-        outfilename = args.output_filename
-    else:
-        (rootfile,_)=os.path.splitext(os.path.realpath(args.src_1sc_file))
-        outfilename = rootfile+".tif"
 
-    print("Output: "+outfilename)
-    # open reader instance and read in file
-    bio1sc_reader = biorad1sc_reader.Reader(args.src_1sc_file)
+    if args.output_filename and len(args.src_1sc_file)>1:
+        print("Sorry, you cannot specify an output filename with more than " \
+                "one input files.")
+        return 1
+ 
+    for srcfilename in args.src_1sc_file:
+        print(srcfilename)
+        if args.output_filename:
+            outfilename = args.output_filename
+        else:
+            (rootfile,_)=os.path.splitext(srcfilename)
+            outfilename = rootfile+".tif"
 
-    if args.scale:
-        bio1sc_reader.save_img_as_tiff_sc(
-                outfilename,
-                invert=args.invert
-                )
-    else:
-        bio1sc_reader.save_img_as_tiff(
-                outfilename,
-                invert=args.invert
-                )
+        print("    -> "+outfilename)
+        # open reader instance and read in file
+        bio1sc_reader = biorad1sc_reader.Reader(srcfilename )
+
+        if args.scale:
+            bio1sc_reader.save_img_as_tiff_sc(
+                    outfilename,
+                    invert=args.invert
+                    )
+        else:
+            bio1sc_reader.save_img_as_tiff(
+                    outfilename,
+                    invert=args.invert
+                    )
 
     return 0
 
