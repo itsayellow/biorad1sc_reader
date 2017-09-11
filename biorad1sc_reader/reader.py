@@ -25,7 +25,7 @@ else:
 def save_u16_to_tiff(u16in, size, tiff_filename):
     # takes  2-14ms currently for 696x520 (WITH numpy)
     # takes 15-41ms currently for 696x520 (NO numpy)
-    print("save_u16_to_tiff START")
+    #print("save_u16_to_tiff START")
     #mytimer = tictoc.Timer()
     # write 16-bit TIFF image
 
@@ -105,7 +105,7 @@ class Reader():
         # when extracting from file:
         # takes  ~60ms currently for 696x520 (WITH numpy)
         # takes ~500ms currently for 696x520 (NO numpy)
-        print("get_img_data START")
+        #print("get_img_data START")
         #mytimer = tictoc.Timer()
 
         if self.img_size_x or self.img_size_y is None:
@@ -165,7 +165,7 @@ class Reader():
     def save_img_as_tiff(self, tiff_filename, invert=False):
         # takes ~14ms currently for 696x520 (WITH numpy)
         # takes ~65ms currently for 696x520 (NO numpy)
-        print("save_img_as_tiff: START")
+        #print("save_img_as_tiff: START")
         #mytimer = tictoc.Timer()
 
         (img_x, img_y, img_data) = self.get_img_data(invert=invert)
@@ -183,7 +183,7 @@ class Reader():
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
         # takes  ~45ms currently for 696x520 (WITH numpy)
         # takes ~250ms currently for 696x520 (NO numpy)
-        print("save_img_as_tiff_sc START")
+        #print("save_img_as_tiff_sc START")
         #mytimer = tictoc.Timer()
 
         (img_x, img_y, img_data) = self.get_img_data(invert=invert)
