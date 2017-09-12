@@ -296,10 +296,6 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
     (field_type, field_len, field_id, _, _) = print_field_header(
             in_bytes, byte_idx, file=file, quiet=quiet)
 
-    ## get field_len if jump field
-    #if field_type == 0:
-    #    field_len = process_payload_type0(in_bytes, byte_idx+8, quiet=True)
-
     # get payload bytes
     field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
 
@@ -375,149 +371,10 @@ def process_payload_generic(field_payload, payload_idx, note_str,
 
 
 def process_payload_type0(in_bytes, payload_idx, file=sys.stdout, quiet=False):
-    # Total:
-    #   14*N + 8 bytes
-    #   7*N + 4 uints
-    # each 7 uint16s:
-    #   non-zero, any, 0, any, 0, non-zero, 0
-    #   or
-    #   0, 0, 0, 0, 0, 0, 0
-    # last 4 uint16s:
-    #   preamble of next Data Block
-    #       (len of next Data Block), 0, non-zero, 0
-    #       (unless start of Image Data Block!  Then just Data)
-    # uint16 following last 3 uint16s is non-zero
-
-    # TODO: to make this absolutely robust, we should just look for byte
-    #   index to Data Block ends
-
+    # Simple.  End Of Data Block field has no payload
     print(file=file)
     print("** End Of Data Block Field **", file=file)
     print(file=file)
-    return payload_idx
-
-    #byte_idx = payload_idx
-    #all_uint16s = []
-    #while True:
-    #    # get 7 uint16s
-    #    test_uint16s = unpack_uint16(in_bytes[byte_idx:byte_idx+14], endian="<")
-
-    #    valid_test7 = (
-    #            all([x==0 for x in test_uint16s]) or
-    #            (
-    #                test_uint16s[0] != 0 and test_uint16s[2] == 0 and
-    #                test_uint16s[4] == 0 and test_uint16s[5] != 0 and
-    #                test_uint16s[6] == 0
-    #                )
-    #            )
-
-    #    if not valid_test7:
-    #        # end of jump field (4 uint16s are preamble of next Data Block)
-    #        all_uint16s.extend(test_uint16s[0:4])
-    #        byte_idx = byte_idx + 8
-
-    #        #if test_uint16s[4] == 0 or test_uint16s[5] == 0:
-    #        #    raise Exception("ERROR: Unexpected Jump Field (Type 0) ending")
-
-    #        break
-    #    else:
-    #        all_uint16s.extend(test_uint16s)
-    #        byte_idx = byte_idx + 14
-
-    #field_len = byte_idx - (payload_idx - 8)
-
-    #if not quiet:
-    #    print("\n**** JUMP FIELD ****", file=file)
-    #    print("**** DATA BLOCK (this) FOOTER + DATA BLOCK (next) HEADER ****\n",
-    #            file=file)
-
-    #    # table header row
-    #    byte_table_data = [
-    #            ["Field\nBytes", "Type", "Description", "Value(s)"],]
-
-    #    all0_since = False
-    #    for i in range(len(all_uint16s)//7):
-    #        # bstart is byte number in field (+8 because after header)
-    #        bstart = i * 14 + 8
-    #        # abs_bstart is byte number in file
-    #        abs_bstart = bstart + payload_idx - 8
-
-    #        this_uint16s = all_uint16s[i*7:(i+1)*7]
-    #        # offset by 2 bytes from start, total of 3 uint32s
-    #        this_uint32s = unpack_uint32(
-    #                in_bytes[abs_bstart+2:abs_bstart+14], endian="<")
-
-    #        if all([x==0 for x in this_uint16s]):
-    #            # all zeros in this batch of 8 uint16s
-    #            if not all0_since:
-    #                # if this is the start of all zeros, record byte index
-    #                all0_since = bstart
-    #        else:
-    #            if all0_since:
-    #                # first 7 with non-zero in a while, so print prev all-0's
-    #                byte_table_datitem = [
-    #                        ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
-    #                        ]
-    #                byte_table_data.extend(byte_table_datitem)
-
-    #                all0_since = False
-
-    #            # print this batch of 7 uint16s
-    #            byte_table_datitem = [
-    #                    ["%d-%d"%(bstart, bstart+1), "uint16",
-    #                        "Data Block (this)\n  Field Type",
-    #                        print_list_simple(this_uint16s[0:1], bits=16)],
-    #                    ["%d-%d"%(bstart+2, bstart+5), "uint32",
-    #                        "Data Block (this)\n  Num. Occurrences A",
-    #                        print_list_simple(this_uint32s[0:1], bits=32)],
-    #                    ["%d-%d"%(bstart+6, bstart+9), "uint32",
-    #                        "Data Block (this)\n  Num. Occurrences B",
-    #                        print_list_simple(this_uint32s[1:2], bits=32)],
-    #                    ["%d-%d"%(bstart+10, bstart+13), "uint32",
-    #                        "Data Block (this)\n  Unknown",
-    #                        print_list_simple(this_uint32s[2:3], bits=32)],
-    #                    ["-----", "------", "------------------", "----------------"],
-    #                    ]
-    #            byte_table_data.extend(byte_table_datitem)
-
-    #    if all0_since:
-    #        # first 7 with non-zero in a while, so print prev all-0's
-    #        byte_table_datitem = [
-    #                ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
-    #                ["=====", "======", "==================", "================"],
-    #                ]
-    #        byte_table_data.extend(byte_table_datitem)
-    #    else:
-    #        # change last ---- line to ==== line
-    #        del byte_table_data[-1]
-    #        byte_table_datitem = [
-    #                ["=====", "======", "==================", "================"],
-    #                ]
-    #        byte_table_data.extend(byte_table_datitem)
-
-    #    # add final 8 bytes after blocks of 14 bytes
-    #    # bstart is byte number in field
-    #    bstart = field_len - 8
-    #    # abs_bstart is byte number in file
-    #    abs_bstart = bstart + payload_idx - 8
-
-    #    this_uint16s = all_uint16s[-4:]
-    #    # offset by 2 bytes from start, total of 3 uint32s
-    #    this_uint32s = unpack_uint32(
-    #            in_bytes[abs_bstart:abs_bstart+8], endian="<")
-
-    #    byte_table_datitem = [
-    #            ["%d-%d"%(bstart, bstart+3), "uint32", "Data Block (next)\n  Length in bytes",
-    #                print_list_simple(this_uint32s[0:1], bits=32)],
-    #            ["%d-%d"%(bstart+4, bstart+7), "uint32", "Data Block (next)\n  Unknown",
-    #                print_list_simple(this_uint32s[1:2], bits=32)],
-    #            ]
-    #    byte_table_data.extend(byte_table_datitem)
-   
-    #    # print table
-    #    print(AsciiTable(byte_table_data).table, file=file)
-
-    #return field_len
 
 
 def process_payload_type16(field_payload, payload_idx, file=sys.stdout):
@@ -1348,3 +1205,23 @@ def main(args):
 if __name__ == "__main__":
     main(sys.argv[1:])
     exit(0)
+
+
+
+# old method for determining end of block footer/header after 
+#   End Of Block Field below:
+# Total:
+#   14*N + 8 bytes
+#   7*N + 4 uints
+# each 7 uint16s:
+#   non-zero, any, 0, any, 0, non-zero, 0
+#   or
+#   0, 0, 0, 0, 0, 0, 0
+# last 4 uint16s:
+#   preamble of next Data Block
+#       (len of next Data Block), 0, non-zero, 0
+#       (unless start of Image Data Block!  Then just Data)
+# uint16 following last 3 uint16s is non-zero
+
+# TODO: to make this absolutely robust, we should just look for byte
+#   index to Data Block ends
