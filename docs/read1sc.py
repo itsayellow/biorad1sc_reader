@@ -1275,9 +1275,6 @@ def parse_file(filename):
                 )
 
         if field_info['type'] == 0:
-            # hack: FIXME
-            byte_idx = field_start + 8
-
             # we just saw an End Of Data Block Field
             (block_num, end_idx) = get_next_data_block_end(
                     byte_idx, data_start, data_len)
