@@ -290,9 +290,14 @@ def print_field_header(in_bytes, byte_idx, file=sys.stdout, quiet=False):
 
 
 def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
-        file=sys.stdout, quiet=False):
+        file=sys.stdout, quiet=False, report_strings=True):
     field_info = {}
-    field_data={}
+
+    # quiet=True if Field Type is String and we're not reporting them
+    field_type_pre = unpack_uint16(in_bytes[byte_idx:byte_idx+2], endian="<")[0]
+    if field_type_pre == 16 and report_strings == False:
+        quiet = True
+
     # read header
     (field_type, field_len, field_id, _, _) = print_field_header(
             in_bytes, byte_idx, file=file, quiet=quiet)
@@ -826,7 +831,7 @@ def process_datablock_footer(footer_bytes, byte_idx, block_num,
     print(AsciiTable(byte_table_data).table, file=file)
 
 def print_datablock(in_bytes, data_start, data_len, block_num, field_ids={},
-        file=sys.stdout):
+        file=sys.stdout, report_strings=True):
     print("="*78, file=file)
     print("DATA BLOCK %s"%block_num, file=file)
     print("Start: %d"%(data_start), file=file)
@@ -839,26 +844,16 @@ def print_datablock(in_bytes, data_start, data_len, block_num, field_ids={},
     byte_idx += 8
 
     # print all fields in data block
-    field_data = {}
     while byte_idx < data_start + data_len:
-        out_uint16s = unpack_uint16(in_bytes[byte_idx:byte_idx+2], endian="<")
-        # if we get to the field_type=0 field, we're at end of block
-        if out_uint16s[0] == 0:
+        (byte_idx, field_info) = read_field(in_bytes, byte_idx,
+                field_ids=field_ids, file=file,
+                report_strings=report_strings)
+
+        if field_info['type'] == 0:
+            # End Of Data Block field
             break
 
-        (byte_idx, field_info) = read_field(in_bytes, byte_idx,
-                field_ids=field_ids, file=file)
-        if 'data' in field_info:
-            field_data = field_info['data']
-
-    # End Of Data Block Field
-    print("-"*78, file=file)
-    (_, byte_idx) = debug_ushorts(in_bytes[byte_idx:byte_idx+8],
-            byte_idx,
-            "",
-            file=file
-            )
-
+    # Print Data Block Footer
     process_datablock_footer(in_bytes[byte_idx:data_start+data_len],
             byte_idx, block_num, file=file)
 
@@ -876,7 +871,7 @@ def get_next_data_block_end(byte_idx, data_start, data_len):
 
 
 def report_whole_file(in_bytes, field_ids, data_start, data_len,
-        filedir, filename):
+        filedir, filename, report_strings=True):
     try:
         out_fh = open(os.path.join(filedir, "dump.txt"), "w")
     except:
@@ -911,7 +906,8 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
     while byte_idx < len(in_bytes):
         field_start = byte_idx
         (byte_idx, field_info) = read_field(
-                in_bytes, byte_idx, field_ids=field_ids, file=out_fh)
+                in_bytes, byte_idx, field_ids=field_ids, file=out_fh,
+                report_strings=report_strings)
         
         if field_info['type'] == 0:
             # we just saw an End Of Data Block Field
@@ -952,7 +948,7 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
 
 
 def report_datablocks(in_bytes, data_start, data_len, field_ids,
-        filedir, filename):
+        filedir, filename, report_strings=True):
     # parse data blocks 0-9
     for i in range(0, 10):
         # Data Block
@@ -967,7 +963,8 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids,
         print_datablock(
                 in_bytes,
                 data_start[i], data_len[i], i,
-                field_ids=field_ids, file=out_fh)
+                field_ids=field_ids, file=out_fh,
+                report_strings=report_strings)
         out_fh.close()
 
     # Data Block 10 - Image Data
@@ -1092,7 +1089,7 @@ def report_hierarchy(field_ids, is_referenced, filedir):
     out_fh.close()
 
 
-def parse_file(filename):
+def parse_file(filename, report_strings=True):
     print(filename)
 
     filename = os.path.realpath(filename)
@@ -1190,12 +1187,12 @@ def parse_file(filename):
     # PASS 2
     #   report on whole file to dump.txt
     report_whole_file(in_bytes, field_ids, data_start, data_len,
-            filedir, filename)
+            filedir, filename, report_strings=report_strings)
 
     # PASS 3
     #   report data blocks in separate files
     report_datablocks(in_bytes, data_start, data_len, field_ids,
-            filedir, filename)
+            filedir, filename, report_strings=report_strings)
 
     # PASS 4
     #   report on hierarchy
@@ -1222,11 +1219,11 @@ def process_command_line(argv):
             help="Source 1sc file(s)."
             )
 
-    ## switches/options:
-    #parser.add_argument(
-    #    '-s', '--max_size', action='store',
-    #    help='String specifying maximum size of images.  ' \
-    #            'Larger images will be resized. (e.g. "1024x768")')
+    # switches/options:
+    parser.add_argument(
+        '-S', '--omit_strings', action='store_true', default=False,
+        help='Do not include Type 16 String fields in reports. ' \
+                '(But include the strings when listing references to them.)')
     #parser.add_argument(
     #    '-o', '--omit_hidden', action='store_true',
     #    help='Do not copy picasa hidden images to destination directory.')
@@ -1240,7 +1237,7 @@ def process_command_line(argv):
 def main(argv=None):
     args = process_command_line(argv)
     for filename in args.srcfile:
-        parse_file(filename)
+        parse_file(filename, report_strings=not args.omit_strings)
     return 0
 
 
