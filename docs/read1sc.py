@@ -288,16 +288,17 @@ def print_field_header(in_bytes, byte_idx, file=sys.stdout, quiet=False):
     return (field_type, field_len, field_id, header_uint16s, header_uint32s)
 
 
-def read_field(in_bytes, byte_idx, note_str="??", field_data={}, field_ids={},
+def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
         file=sys.stdout, quiet=False):
     field_info = {}
+    field_data={}
     # read header
     (field_type, field_len, field_id, _, _) = print_field_header(
             in_bytes, byte_idx, file=file, quiet=quiet)
 
-    # get field_len if jump field
-    if field_type == 0:
-        field_len = process_payload_type0(in_bytes, byte_idx+8, quiet=True)
+    ## get field_len if jump field
+    #if field_type == 0:
+    #    field_len = process_payload_type0(in_bytes, byte_idx+8, quiet=True)
 
     # get payload bytes
     field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
@@ -319,7 +320,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_data={}, field_ids={},
         print("Field Payload:", file=file)
 
         if field_type == 0:
-            field_len = process_payload_type0(in_bytes, byte_idx+8, file=file)
+            process_payload_type0(in_bytes, byte_idx+8, file=file)
         elif field_type == 16:
             process_payload_type16(field_payload, byte_idx+8, file=file)
         elif field_type in BLOCK_PTR_TYPES:
@@ -387,128 +388,136 @@ def process_payload_type0(in_bytes, payload_idx, file=sys.stdout, quiet=False):
     #       (unless start of Image Data Block!  Then just Data)
     # uint16 following last 3 uint16s is non-zero
 
-    byte_idx = payload_idx
-    all_uint16s = []
-    while True:
-        # get 7 uint16s
-        test_uint16s = unpack_uint16(in_bytes[byte_idx:byte_idx+14], endian="<")
+    # TODO: to make this absolutely robust, we should just look for byte
+    #   index to Data Block ends
 
-        valid_test7 = (
-                all([x==0 for x in test_uint16s]) or
-                (
-                    test_uint16s[0] != 0 and test_uint16s[2] == 0 and
-                    test_uint16s[4] == 0 and test_uint16s[5] != 0 and
-                    test_uint16s[6] == 0
-                    )
-                )
+    print(file=file)
+    print("** End Of Data Block Field **", file=file)
+    print(file=file)
+    return payload_idx
 
-        if not valid_test7:
-            # end of jump field (4 uint16s are preamble of next Data Block)
-            all_uint16s.extend(test_uint16s[0:4])
-            byte_idx = byte_idx + 8
+    #byte_idx = payload_idx
+    #all_uint16s = []
+    #while True:
+    #    # get 7 uint16s
+    #    test_uint16s = unpack_uint16(in_bytes[byte_idx:byte_idx+14], endian="<")
 
-            #if test_uint16s[4] == 0 or test_uint16s[5] == 0:
-            #    raise Exception("ERROR: Unexpected Jump Field (Type 0) ending")
+    #    valid_test7 = (
+    #            all([x==0 for x in test_uint16s]) or
+    #            (
+    #                test_uint16s[0] != 0 and test_uint16s[2] == 0 and
+    #                test_uint16s[4] == 0 and test_uint16s[5] != 0 and
+    #                test_uint16s[6] == 0
+    #                )
+    #            )
 
-            break
-        else:
-            all_uint16s.extend(test_uint16s)
-            byte_idx = byte_idx + 14
+    #    if not valid_test7:
+    #        # end of jump field (4 uint16s are preamble of next Data Block)
+    #        all_uint16s.extend(test_uint16s[0:4])
+    #        byte_idx = byte_idx + 8
 
-    field_len = byte_idx - (payload_idx - 8)
+    #        #if test_uint16s[4] == 0 or test_uint16s[5] == 0:
+    #        #    raise Exception("ERROR: Unexpected Jump Field (Type 0) ending")
 
-    if not quiet:
-        print("\n**** JUMP FIELD ****", file=file)
-        print("**** DATA BLOCK (this) FOOTER + DATA BLOCK (next) HEADER ****\n",
-                file=file)
+    #        break
+    #    else:
+    #        all_uint16s.extend(test_uint16s)
+    #        byte_idx = byte_idx + 14
 
-        # table header row
-        byte_table_data = [
-                ["Field\nBytes", "Type", "Description", "Value(s)"],]
+    #field_len = byte_idx - (payload_idx - 8)
 
-        all0_since = False
-        for i in range(len(all_uint16s)//7):
-            # bstart is byte number in field (+8 because after header)
-            bstart = i * 14 + 8
-            # abs_bstart is byte number in file
-            abs_bstart = bstart + payload_idx - 8
+    #if not quiet:
+    #    print("\n**** JUMP FIELD ****", file=file)
+    #    print("**** DATA BLOCK (this) FOOTER + DATA BLOCK (next) HEADER ****\n",
+    #            file=file)
 
-            this_uint16s = all_uint16s[i*7:(i+1)*7]
-            # offset by 2 bytes from start, total of 3 uint32s
-            this_uint32s = unpack_uint32(
-                    in_bytes[abs_bstart+2:abs_bstart+14], endian="<")
+    #    # table header row
+    #    byte_table_data = [
+    #            ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
-            if all([x==0 for x in this_uint16s]):
-                # all zeros in this batch of 8 uint16s
-                if not all0_since:
-                    # if this is the start of all zeros, record byte index
-                    all0_since = bstart
-            else:
-                if all0_since:
-                    # first 7 with non-zero in a while, so print prev all-0's
-                    byte_table_datitem = [
-                            ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
-                            ]
-                    byte_table_data.extend(byte_table_datitem)
+    #    all0_since = False
+    #    for i in range(len(all_uint16s)//7):
+    #        # bstart is byte number in field (+8 because after header)
+    #        bstart = i * 14 + 8
+    #        # abs_bstart is byte number in file
+    #        abs_bstart = bstart + payload_idx - 8
 
-                    all0_since = False
+    #        this_uint16s = all_uint16s[i*7:(i+1)*7]
+    #        # offset by 2 bytes from start, total of 3 uint32s
+    #        this_uint32s = unpack_uint32(
+    #                in_bytes[abs_bstart+2:abs_bstart+14], endian="<")
 
-                # print this batch of 7 uint16s
-                byte_table_datitem = [
-                        ["%d-%d"%(bstart, bstart+1), "uint16",
-                            "Data Block (this)\n  Field Type",
-                            print_list_simple(this_uint16s[0:1], bits=16)],
-                        ["%d-%d"%(bstart+2, bstart+5), "uint32",
-                            "Data Block (this)\n  Num. Occurrences A",
-                            print_list_simple(this_uint32s[0:1], bits=32)],
-                        ["%d-%d"%(bstart+6, bstart+9), "uint32",
-                            "Data Block (this)\n  Num. Occurrences B",
-                            print_list_simple(this_uint32s[1:2], bits=32)],
-                        ["%d-%d"%(bstart+10, bstart+13), "uint32",
-                            "Data Block (this)\n  Unknown",
-                            print_list_simple(this_uint32s[2:3], bits=32)],
-                        ["-----", "------", "------------------", "----------------"],
-                        ]
-                byte_table_data.extend(byte_table_datitem)
+    #        if all([x==0 for x in this_uint16s]):
+    #            # all zeros in this batch of 8 uint16s
+    #            if not all0_since:
+    #                # if this is the start of all zeros, record byte index
+    #                all0_since = bstart
+    #        else:
+    #            if all0_since:
+    #                # first 7 with non-zero in a while, so print prev all-0's
+    #                byte_table_datitem = [
+    #                        ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
+    #                        ]
+    #                byte_table_data.extend(byte_table_datitem)
 
-        if all0_since:
-            # first 7 with non-zero in a while, so print prev all-0's
-            byte_table_datitem = [
-                    ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
-                    ["=====", "======", "==================", "================"],
-                    ]
-            byte_table_data.extend(byte_table_datitem)
-        else:
-            # change last ---- line to ==== line
-            del byte_table_data[-1]
-            byte_table_datitem = [
-                    ["=====", "======", "==================", "================"],
-                    ]
-            byte_table_data.extend(byte_table_datitem)
+    #                all0_since = False
 
-        # add final 8 bytes after blocks of 14 bytes
-        # bstart is byte number in field
-        bstart = field_len - 8
-        # abs_bstart is byte number in file
-        abs_bstart = bstart + payload_idx - 8
+    #            # print this batch of 7 uint16s
+    #            byte_table_datitem = [
+    #                    ["%d-%d"%(bstart, bstart+1), "uint16",
+    #                        "Data Block (this)\n  Field Type",
+    #                        print_list_simple(this_uint16s[0:1], bits=16)],
+    #                    ["%d-%d"%(bstart+2, bstart+5), "uint32",
+    #                        "Data Block (this)\n  Num. Occurrences A",
+    #                        print_list_simple(this_uint32s[0:1], bits=32)],
+    #                    ["%d-%d"%(bstart+6, bstart+9), "uint32",
+    #                        "Data Block (this)\n  Num. Occurrences B",
+    #                        print_list_simple(this_uint32s[1:2], bits=32)],
+    #                    ["%d-%d"%(bstart+10, bstart+13), "uint32",
+    #                        "Data Block (this)\n  Unknown",
+    #                        print_list_simple(this_uint32s[2:3], bits=32)],
+    #                    ["-----", "------", "------------------", "----------------"],
+    #                    ]
+    #            byte_table_data.extend(byte_table_datitem)
 
-        this_uint16s = all_uint16s[-4:]
-        # offset by 2 bytes from start, total of 3 uint32s
-        this_uint32s = unpack_uint32(
-                in_bytes[abs_bstart:abs_bstart+8], endian="<")
+    #    if all0_since:
+    #        # first 7 with non-zero in a while, so print prev all-0's
+    #        byte_table_datitem = [
+    #                ["%d-%d"%(all0_since, bstart-1),"","All Zeros","0"],
+    #                ["=====", "======", "==================", "================"],
+    #                ]
+    #        byte_table_data.extend(byte_table_datitem)
+    #    else:
+    #        # change last ---- line to ==== line
+    #        del byte_table_data[-1]
+    #        byte_table_datitem = [
+    #                ["=====", "======", "==================", "================"],
+    #                ]
+    #        byte_table_data.extend(byte_table_datitem)
 
-        byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+3), "uint32", "Data Block (next)\n  Length in bytes",
-                    print_list_simple(this_uint32s[0:1], bits=32)],
-                ["%d-%d"%(bstart+4, bstart+7), "uint32", "Data Block (next)\n  Unknown",
-                    print_list_simple(this_uint32s[1:2], bits=32)],
-                ]
-        byte_table_data.extend(byte_table_datitem)
+    #    # add final 8 bytes after blocks of 14 bytes
+    #    # bstart is byte number in field
+    #    bstart = field_len - 8
+    #    # abs_bstart is byte number in file
+    #    abs_bstart = bstart + payload_idx - 8
+
+    #    this_uint16s = all_uint16s[-4:]
+    #    # offset by 2 bytes from start, total of 3 uint32s
+    #    this_uint32s = unpack_uint32(
+    #            in_bytes[abs_bstart:abs_bstart+8], endian="<")
+
+    #    byte_table_datitem = [
+    #            ["%d-%d"%(bstart, bstart+3), "uint32", "Data Block (next)\n  Length in bytes",
+    #                print_list_simple(this_uint32s[0:1], bits=32)],
+    #            ["%d-%d"%(bstart+4, bstart+7), "uint32", "Data Block (next)\n  Unknown",
+    #                print_list_simple(this_uint32s[1:2], bits=32)],
+    #            ]
+    #    byte_table_data.extend(byte_table_datitem)
    
-        # print table
-        print(AsciiTable(byte_table_data).table, file=file)
+    #    # print table
+    #    print(AsciiTable(byte_table_data).table, file=file)
 
-    return field_len
+    #return field_len
 
 
 def process_payload_type16(field_payload, payload_idx, file=sys.stdout):
@@ -652,8 +661,9 @@ def process_payload_type101(field_payload, field_ids={},
                 ["%d-%d"%(bstart+8, bstart+11), "uint32", "Item %d Reference"%i,
                     print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
                 ["", "", "", "(%s)"%ref_string0],
-                ["%d-%d"%(bstart+12, bstart+15), "uint16", "Item %d Unknown2"%i,
-                    print_list_simple(uint16s[u16start+6:u16start+8], bits=16)],
+                ["%d-%d"%(bstart+12, bstart+15), "uint32",
+                    "Item %d Total bytes pointed\n  to by above reference"%i,
+                    print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
                 ["%d-%d"%(bstart+16, bstart+19), "uint32", "Item %d Reference"%i,
                     print_list_simple(uint32s[u32start+4:u32start+5], bits=32)],
                 ["", "", "", "(%s)"%ref_string1],
@@ -885,30 +895,88 @@ def parse_datablock(field_payload):
     return(data_start, data_len)
 
 
-def print_datablock(in_bytes, data_start, data_len, block_name, field_ids={},
+def process_datablock_header(header_bytes, byte_idx, block_num,
         file=sys.stdout):
-    print("=====================================================================",
-            file=file)
-    print("DATA BLOCK %s"%block_name, file=file)
+    print("="*79, file=file)
+    print("byte_idx = "+repr(byte_idx), file=file)
+    print("Data Block %s Header"%block_num, file=file)
+
+    # table header row
+    byte_table_data = [
+            ["Field\nBytes", "Type", "Description", "Value(s)"],]
+
+    uint32s = unpack_uint32(header_bytes, endian="<")
+
+    bstart = 0
+
+    byte_table_datitem = [
+            ["%d-%d"%(bstart, bstart+3), "uint32",
+                "Data Block Length of\n  all fields (bytes)",
+                print_list_simple(uint32s[0:1], bits=32)],
+            ["%d-%d"%(bstart+4, bstart+8), "uint32",
+                "Data Block Number of\n  Different Field Types",
+                print_list_simple(uint32s[1:2], bits=32)],
+            ]
+    byte_table_data.extend(byte_table_datitem)
+
+    print(AsciiTable(byte_table_data).table, file=file)
+
+
+
+def process_datablock_footer(footer_bytes, byte_idx, block_num,
+        file=sys.stdout):
+    print("-"*79, file=file)
+    print("byte_idx = "+repr(byte_idx), file=file)
+    print("Data Block %s Footer"%block_num, file=file)
+
+    # table header row
+    byte_table_data = [
+            ["Field\nBytes", "Type", "Description", "Value(s)"],]
+
+    for i in range(len(footer_bytes)//14):
+        uint16s = unpack_uint16(footer_bytes[i*14:(i+1)*14], endian="<")
+        uint32s = unpack_uint32(footer_bytes[i*14+2:(i+1)*14], endian="<")
+
+        # bstart is byte number in field
+        bstart = i * 14
+
+        # print this batch of 7 uint16s
+        byte_table_datitem = [
+                ["%d-%d"%(bstart, bstart+1), "uint16",
+                    "Item %d Data Block\n  Field Type"%i,
+                    print_list_simple(uint16s[0:1], bits=16)],
+                ["%d-%d"%(bstart+2, bstart+5), "uint32",
+                    "Item %d Data Block\n  Num. Occurrences A"%i,
+                    print_list_simple(uint32s[0:1], bits=32)],
+                ["%d-%d"%(bstart+6, bstart+9), "uint32",
+                    "Item %d Data Block\n  Num. Occurrences B"%i,
+                    print_list_simple(uint32s[1:2], bits=32)],
+                ["%d-%d"%(bstart+10, bstart+13), "uint32",
+                    "Item %d Data Block\n  Unknown"%i,
+                    print_list_simple(uint32s[2:3], bits=32)],
+                ["-----", "------", "------------------", "----------------"],
+                ]
+        byte_table_data.extend(byte_table_datitem)
+
+    # get rid of last "----" row
+    del byte_table_data[-1]
+
+    print(AsciiTable(byte_table_data).table, file=file)
+
+def print_datablock(in_bytes, data_start, data_len, block_num, field_ids={},
+        file=sys.stdout):
+    print("="*78, file=file)
+    print("DATA BLOCK %s"%block_num, file=file)
     print("Start: %d"%(data_start), file=file)
     print("End:   %d"%(data_start + data_len), file=file)
     print(file=file)
 
     byte_idx = data_start
-    # read first 4 ushorts
-    (out_uints, byte_idx) = debug_ushorts(in_bytes[byte_idx:byte_idx+8],
-            byte_idx,
-            "Data Block %s Header"%block_name,
-            file=file
-            )
-    print("Length of data block (minus this block header): %d bytes"%out_uints[0],
-            file=file
-            )
-    # TODO: is this correct?
-    print("Number of non-type-16 data fields: %d"%out_uints[2],
-            file=file
-            )
+    process_datablock_header(in_bytes[byte_idx:byte_idx+8], byte_idx, block_num,
+        file=file)
+    byte_idx += 8
 
+    # print all fields in data block
     field_data = {}
     while byte_idx < data_start + data_len:
         out_uint16s = unpack_uint16(in_bytes[byte_idx:byte_idx+2], endian="<")
@@ -917,28 +985,36 @@ def print_datablock(in_bytes, data_start, data_len, block_name, field_ids={},
             break
 
         (byte_idx, field_info) = read_field(in_bytes, byte_idx,
-                field_data=field_data, field_ids=field_ids, file=file)
+                field_ids=field_ids, file=file)
         if 'data' in field_info:
             field_data = field_info['data']
 
-    print("--------------------------------------------------------------",
-            file=file)
-    print("Data Block %s Footer"%block_name, file=file)
-
+    # End Of Data Block Field
+    print("-"*78, file=file)
     (_, byte_idx) = debug_ushorts(in_bytes[byte_idx:byte_idx+8],
             byte_idx,
             "",
             file=file
             )
-    while byte_idx < data_start + data_len:
-        (_, byte_idx) = debug_ushorts(in_bytes[byte_idx:byte_idx+14],
-                byte_idx,
-                "",
-                file=file
-                )
+
+    process_datablock_footer(in_bytes[byte_idx:data_start+data_len],
+            byte_idx, block_num, file=file)
 
 
-def report_whole_file(in_bytes, field_ids, filedir, filename):
+def get_next_data_block_end(byte_idx, data_start, data_len):
+    #block_num = 0
+    #end_idx = data_start[0] + data_len[0]
+
+    for i in range(11):
+        if byte_idx < data_start[i] + data_len[i]:
+            block_num = i
+            end_idx = data_start[i] + data_len[i]
+            break
+    return (block_num, end_idx)
+
+
+def report_whole_file(in_bytes, field_ids, data_start, data_len,
+        filedir, filename):
     try:
         out_fh = open(os.path.join(filedir, "dump.txt"), "w")
     except:
@@ -946,26 +1022,49 @@ def report_whole_file(in_bytes, field_ids, filedir, filename):
 
     print(filename, file=out_fh)
 
-    # field_data is data from last field_type=100 field, to be used in
-    #   following field_type=16 fields
-    byte_idx = 160
-    field_data = {}
-    data_start = {}
-    data_len = {}
-    # init img data start at max 32-bit value
-    data_start[10] = 0xffffffff
+    # FILE HEADER
 
+    # read 11 fields to Data Block Pointers in File Header
+    byte_idx = 160
+    for i in range(11):
+        (byte_idx, field_info) = read_field(
+                in_bytes, byte_idx, field_ids=field_ids, file=out_fh)
+
+    print("-"*78, file=out_fh)
+    print("byte_idx: %d-%d"%(byte_idx,data_start[0]-1),file=out_fh)
+    print(file=out_fh)
+    print("All Zeros",file=out_fh)
+    print(file=out_fh)
+
+    # DATA BLOCKS
+
+    # get + print Data Block 0 Header
+    byte_idx = data_start[0]
+    process_datablock_header(in_bytes[byte_idx:byte_idx+8], byte_idx, 0,
+        file=out_fh)
+
+    # start again at beginning of Data Block 0
+    byte_idx = data_start[0] + 8
+    # read all fields in file after File Header
     while byte_idx < len(in_bytes):
         field_start = byte_idx
         (byte_idx, field_info) = read_field(
-                in_bytes, byte_idx, field_data=field_data, field_ids=field_ids,
-                file=out_fh)
+                in_bytes, byte_idx, field_ids=field_ids, file=out_fh)
+        
+        if field_info['type'] == 0:
+            # we just saw an End Of Data Block Field
+            (block_num, end_idx) = get_next_data_block_end(
+                    byte_idx, data_start, data_len)
 
-        # record blocks start, end
-        if field_info['type'] in BLOCK_PTR_TYPES:
-            block_num = BLOCK_PTR_TYPES[field_info['type']]
-            (data_start[block_num], data_len[block_num]) = parse_datablock(
-                field_info['payload'])
+            process_datablock_footer(in_bytes[byte_idx:end_idx],
+                    byte_idx, block_num, file=out_fh)
+
+            byte_idx = end_idx
+            if block_num + 1 < 10:
+                process_datablock_header(in_bytes[byte_idx:byte_idx+8],
+                        byte_idx, block_num+1, file=out_fh)
+
+            byte_idx = end_idx + 8
 
         # break if we still aren't advancing
         if byte_idx == field_start:
@@ -975,18 +1074,22 @@ def report_whole_file(in_bytes, field_ids, filedir, filename):
             break
 
         if byte_idx > data_start[10]:
-            print("-----------------------------------------------------------",
-                    file=out_fh)
-            print("We passed the start of img data, so BREAK!!",
-                    file=out_fh)
-            print("-----------------------------------------------------------",
-                    file=out_fh)
+            print("="*79, file=out_fh)
+            print("byte_idx = "+repr(byte_idx), file=out_fh)
+            print(file=out_fh)
+            print("Data Block 10 Start", file=out_fh)
+            print(file=out_fh)
+            print("%d-%d     Image Data"%(byte_idx,byte_idx+data_len[10]),
+                file=out_fh)
+            print(file=out_fh)
+            print("="*79, file=out_fh)
             break
 
     out_fh.close()
 
 
-def report_datablocks(in_bytes, data_start, data_len, field_ids, filedir):
+def report_datablocks(in_bytes, data_start, data_len, field_ids,
+        filedir, filename):
     # parse data blocks 0-9
     for i in range(0, 10):
         # Data Block
@@ -995,6 +1098,9 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids, filedir):
         except:
             print("Error opening data%02d.txt"%i, file=sys.stderr)
             raise
+
+        print(filename, file=out_fh)
+
         print_datablock(
                 in_bytes,
                 data_start[i], data_len[i], "%d"%i,
@@ -1142,15 +1248,23 @@ def parse_file(filename):
     field_ids = {}
 
     # PASS 1
-    #   get all fields, field_ids, field_data
+    #   get all fields, field_id
 
     # reset loop variables
     byte_idx = 160
     data_start = {}
     data_len = {}
-    # init img data start at max 32-bit value
-    data_start[10] = 0xffffffff
-
+    
+    # read 11 fields to Data Block Pointers in File Header
+    byte_idx = 160
+    for i in range(11):
+        (byte_idx, field_info) = read_field(in_bytes, byte_idx, quiet=True)
+        block_num = BLOCK_PTR_TYPES[field_info['type']]
+        (data_start[block_num], data_len[block_num]) = parse_datablock(
+            field_info['payload'])
+    
+    # read all remaining fields in file after Data Block 0 Header
+    byte_idx = data_start[0]+8
     while byte_idx < len(in_bytes):
         field_start = byte_idx
 
@@ -1160,11 +1274,17 @@ def parse_file(filename):
                 quiet=True
                 )
 
-        # record data blocks start, end
-        if field_info['type'] in BLOCK_PTR_TYPES:
-            block_num = BLOCK_PTR_TYPES[field_info['type']]
-            (data_start[block_num], data_len[block_num]) = parse_datablock(
-                field_info['payload'])
+        if field_info['type'] == 0:
+            # hack: FIXME
+            byte_idx = field_start + 8
+
+            # we just saw an End Of Data Block Field
+            (block_num, end_idx) = get_next_data_block_end(
+                    byte_idx, data_start, data_len)
+
+            # skip past Data Block Footer and Header to first field
+            #   of next Data Block
+            byte_idx = end_idx + 8
 
         if field_info['id'] != 0:
             field_ids[field_info['id']] = field_info
@@ -1177,7 +1297,7 @@ def parse_file(filename):
             break
 
     # reset byte_idx
-    byte_idx = 160
+    byte_idx = data_start[0]+8
 
     # keep track of all fields that were referenced
     is_referenced = {}
@@ -1209,15 +1329,18 @@ def parse_file(filename):
 
     # PASS 2
     #   report on whole file to dump.txt
-    report_whole_file(in_bytes, field_ids, filedir, filename)
+    report_whole_file(in_bytes, field_ids, data_start, data_len,
+            filedir, filename)
 
     # PASS 3
     #   report data blocks in separate files
-    report_datablocks(in_bytes, data_start, data_len, field_ids, filedir)
+    report_datablocks(in_bytes, data_start, data_len, field_ids,
+            filedir, filename)
 
     # PASS 4
     #   report on hierarchy
-    report_hierarchy(field_ids, is_referenced, filedir)
+    report_hierarchy(field_ids, is_referenced,
+            filedir)
 
 
 def main(args):
