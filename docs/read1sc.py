@@ -5,6 +5,7 @@
 import os
 import os.path
 import sys
+import argparse
 import struct
 from terminaltables import AsciiTable
 
@@ -760,7 +761,7 @@ def process_datablock_header(header_bytes, byte_idx, block_num,
         file=sys.stdout):
     print("="*79, file=file)
     print("byte_idx = "+repr(byte_idx), file=file)
-    print("Data Block %s Header"%block_num, file=file)
+    print("Data Block %02d Header"%block_num, file=file)
 
     # table header row
     byte_table_data = [
@@ -965,7 +966,7 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids,
 
         print_datablock(
                 in_bytes,
-                data_start[i], data_len[i], "%d"%i,
+                data_start[i], data_len[i], i,
                 field_ids=field_ids, file=out_fh)
         out_fh.close()
 
@@ -1202,15 +1203,56 @@ def parse_file(filename):
             filedir)
 
 
-def main(args):
-    for filename in args:
+def process_command_line(argv):
+    """
+    Return args struct
+    `argv` is a list of arguments, or `None` for ``sys.argv[1:]``.
+    """
+    #script_name = argv[0]
+    argv = argv[1:]
+
+    # initialize the parser object:
+    parser = argparse.ArgumentParser(
+            description="Recurse through srcdir, copying all images to top-level of destdir")
+
+    # specifying nargs= puts outputs of parser in list (even if nargs=1)
+
+    # required arguments
+    parser.add_argument('srcfile', nargs='+',
+            help="Source 1sc file(s)."
+            )
+
+    ## switches/options:
+    #parser.add_argument(
+    #    '-s', '--max_size', action='store',
+    #    help='String specifying maximum size of images.  ' \
+    #            'Larger images will be resized. (e.g. "1024x768")')
+    #parser.add_argument(
+    #    '-o', '--omit_hidden', action='store_true',
+    #    help='Do not copy picasa hidden images to destination directory.')
+
+    #(settings, args) = parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    return args
+
+
+def main(argv=None):
+    args = process_command_line(argv)
+    for filename in args.srcfile:
         parse_file(filename)
+    return 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-    exit(0)
+    try:
+        status = main(sys.argv)
+    except KeyboardInterrupt:
+        print("Stopped by Keyboard Interrupt", file=sys.stderr)
+        # exit error code for Ctrl-C
+        status = 130
 
+    sys.exit(status)
 
 
 # old method for determining end of block footer/header after 
