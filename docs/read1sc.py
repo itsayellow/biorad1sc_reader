@@ -300,6 +300,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
     field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
 
     # check for references
+    # TODO: this will fail if reference is offset by 2 bytes
     references = []
     if len(field_payload) % 4 == 0:
         out_uint32s = unpack_uint32(field_payload, endian="<")
@@ -725,6 +726,9 @@ def process_payload_type1000(field_payload, field_ids={},
 #        return byte_idx
 
 
+# Debugging routine used to search backwards from known field to try and find
+#   previous possible fields
+# Not really used anymore
 def search_backwards(in_bytes, field_start, level=0, min_search_idx=0, file=sys.stdout):
     idx = field_start - 2
     possibles = []
@@ -931,6 +935,7 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
             break
 
         if byte_idx > data_start[10]:
+            byte_idx = data_start[10]
             print("="*79, file=out_fh)
             print("byte_idx = "+repr(byte_idx), file=out_fh)
             print(file=out_fh)
@@ -1121,7 +1126,7 @@ def parse_file(filename):
             field_info['payload'])
     
     # read all remaining fields in file after Data Block 0 Header
-    byte_idx = data_start[0]+8
+    byte_idx = data_start[0] + 8
     while byte_idx < len(in_bytes):
         field_start = byte_idx
 
@@ -1150,7 +1155,7 @@ def parse_file(filename):
         if byte_idx > data_start[10]:
             break
 
-    # reset byte_idx
+    # reset byte_idx to right after Data Block 0 Header
     byte_idx = data_start[0]+8
 
     # keep track of all fields that were referenced
