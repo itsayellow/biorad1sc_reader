@@ -289,8 +289,10 @@ def print_field_header(in_bytes, byte_idx, file=sys.stdout, quiet=False):
     return (field_type, field_len, field_id, header_uint16s, header_uint32s)
 
 
-def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
+def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
         file=sys.stdout, quiet=False, report_strings=True):
+    if field_ids is None:
+        field_ids = {}
     field_info = {}
 
     # quiet=True if Field Type is String and we're not reporting them
@@ -306,17 +308,17 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids={},
     field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
 
     # check for references
-    # TODO: this will fail if reference is offset by 2 bytes
-    references = []
-    if len(field_payload) % 4 == 0:
-        out_uint32s = unpack_uint32(field_payload, endian="<")
-        references = [x for x in out_uint32s if x in field_ids]
-        if references and not quiet:
-            print("Links to: ", end="", file=file)
-            for ref in references:
-                print("%d (type %d),"%(ref, field_ids[ref]['type']),
-                        end="", file=file)
-            print("\n", file=file)
+    bytes_0mod4 = field_payload[0:len(field_payload)//4*4]
+    bytes_2mod4 = field_payload[2:2+(len(field_payload)-2)//4*4]
+    out_uint32s1 = unpack_uint32(bytes_0mod4, endian="<")
+    out_uint32s2 = unpack_uint32(bytes_2mod4, endian="<")
+    references = [x for x in out_uint32s1 + out_uint32s2 if x in field_ids]
+    if references and not quiet:
+        print("Links to: ", end="", file=file)
+        for ref in references:
+            print("%d (type %d),"%(ref, field_ids[ref]['type']),
+                    end="", file=file)
+        print("\n", file=file)
 
     # report payload if not quiet
     if not quiet:
@@ -443,8 +445,11 @@ def summarize_ref(field_id, field_ids):
     return ref_string
 
 
-def process_payload_type100(field_payload, field_ids={},
+def process_payload_type100(field_payload, field_ids=None,
         file=sys.stdout):
+    if field_ids is None:
+        field_ids = {}
+
     # every 36 bytes is a new Data Item
     # each uint at bytes 12-15 + 36*N is a reference to Field Type 16
     ditem_len = 36
@@ -494,8 +499,11 @@ def process_payload_type100(field_payload, field_ids={},
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-def process_payload_type101(field_payload, field_ids={},
+def process_payload_type101(field_payload, field_ids=None,
         file=sys.stdout):
+    if field_ids is None:
+        field_ids = {}
+
     # every 20 bytes is a new Data Item
     # each uint at bytes 8-11 + 20*N is a reference
     # each uint at bytes 16-19 + 20*N is a reference
@@ -541,8 +549,11 @@ def process_payload_type101(field_payload, field_ids={},
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-def process_payload_type102(field_payload, field_ids={},
+def process_payload_type102(field_payload, field_ids=None,
         file=sys.stdout):
+    if field_ids is None:
+        field_ids = {}
+
     # every 16 bytes is a new Data Item
     # each uint at bytes 8-11 + 16*N is a reference
     # each uint at bytes 12-15 + 16*N is a reference
@@ -585,8 +596,11 @@ def process_payload_type102(field_payload, field_ids={},
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-def process_payload_type131(field_payload, field_ids={},
+def process_payload_type131(field_payload, field_ids=None,
         file=sys.stdout):
+    if field_ids is None:
+        field_ids = {}
+
     # every 12 bytes is a new Data Item
     # each uint at bytes 4-7 + 12*N is a reference
     ditem_len = 12
@@ -626,8 +640,15 @@ def process_payload_type131(field_payload, field_ids={},
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-def process_payload_type1000(field_payload, field_ids={},
+def process_payload_type1000(field_payload, field_ids=None,
         file=sys.stdout, quiet=False):
+    if field_ids is None:
+        field_ids = {}
+
+    # not fixed format?
+
+    # TODO: just list groups of words between references
+
     # string also shows bytes in hex
     debug_string(
             field_payload, 0, "bytes", multiline=True,
@@ -646,6 +667,65 @@ def process_payload_type1000(field_payload, field_ids={},
                     field_payload, 0, "int32s",
                     file=file)
 
+
+def process_payload_type1015(field_payload, field_ids=None,
+        file=sys.stdout):
+    if field_ids is None:
+        field_ids = {}
+
+    # not fixed format?
+    
+    # TODO: just list groups of words between references
+
+    ditem_len = 12
+
+    num_data_items = len(field_payload)//ditem_len
+
+    uint16s = unpack_uint16(field_payload, endian="<")
+    uint32s = unpack_uint32(field_payload, endian="<")
+
+    byte_table_data = [
+            ["Field\nBytes", "Type", "Description", "Value(s)"],]
+
+    for i in range(num_data_items):
+        bstart = i*ditem_len + 8
+        u16start = i*(ditem_len//2)
+        u32start = i*(ditem_len//4)
+
+        ref_string0 = summarize_ref(uint32s[u32start], field_ids)
+        ref_string1 = summarize_ref(uint32s[u32start+1], field_ids)
+
+        byte_table_datitem = [
+                ["%d-%d"%(bstart, bstart+3), "uint32", "Item %d Reference"%i,
+                    print_list_simple(uint32s[u32start:u32start+1], bits=32)],
+                ["", "", "", "(%s)"%ref_string0],
+                ["%d-%d"%(bstart+4, bstart+7), "uint32", "Item %d Reference"%i,
+                    print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
+                ["", "", "", "(%s)"%ref_string1],
+                ["%d-%d"%(bstart+8, bstart+11), "uint16", "Item %d Unknown"%i,
+                    print_list_simple(uint16s[u16start+4:u16start+6], bits=16)],
+                ["-----", "------", "----------------", "----------------"],
+                ]
+        byte_table_data.extend(byte_table_datitem)
+
+    # get rid of last "----" row
+    del byte_table_data[-1]
+
+    print(AsciiTable(byte_table_data).table, file=file)
+
+
+# TODO: Type 1000
+#   probably data for Type 100's
+# TODO: Type 1007
+# TODO: Type 1008
+# TODO: Type 1010
+# TODO: Type 1011
+# TODO: Type 1015
+# TODO: Type 1020
+# TODO: Type 1022
+#   probably data for Type 100's
+# TODO: Type 1024
+# TODO: Type 1030
 
 #def read_field_type1007(in_bytes, byte_idx, note_str="??", field_data={},
 #        file=sys.stdout):
@@ -830,8 +910,11 @@ def process_datablock_footer(footer_bytes, byte_idx, block_num,
 
     print(AsciiTable(byte_table_data).table, file=file)
 
-def print_datablock(in_bytes, data_start, data_len, block_num, field_ids={},
+def print_datablock(in_bytes, data_start, data_len, block_num, field_ids=None,
         file=sys.stdout, report_strings=True):
+    if field_ids is None:
+        field_ids = {}
+
     print("="*78, file=file)
     print("DATA BLOCK %s"%block_num, file=file)
     print("Start: %d"%(data_start), file=file)
