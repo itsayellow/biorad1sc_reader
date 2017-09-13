@@ -452,15 +452,14 @@ def process_payload_blockptr(field_payload, field_type,
 
     byte_table_data = [
             ["Field\nBytes", "Type", "Description", "Value(s)"],
-            ["8-11", "uint32", "Data Block start\n  Byte offset from file start", "%d"%(uint32s[0])],
-            ["12-15", "uint32", "Data Block length\n  Length in bytes", "%d"%(uint32s[1])],
-            ["16-19", "??", "Unknown", ""],
-            ["", "bytes", "", print_list_simple(uint8s[-4:], bits=8, hexfmt=True)],
-            ["", "", "", print_list_simple(uint8s[-4:], bits=8)],
-            ["", "uint16", "", print_list_simple(uint16s[-2:], bits=16, hexfmt=True)],
-            ["", "", "", print_list_simple(uint16s[-2:], bits=16)],
-            ["", "uint32", "", print_list_simple(uint32s[-1:], bits=32, hexfmt=True)],
-            ["", "", "", print_list_simple(uint32s[-1:], bits=32)],
+            ["8-11", "uint32",
+                "Data Block start\n  Byte offset from file start",
+                "%d"%(uint32s[0])],
+            ["12-15", "uint32",
+                "Data Block length\n  Length in bytes",
+                "%d"%(uint32s[1])],
+            ["16-19", "uint16", "Unknown",
+                print_list_simple(uint16s[-2:], bits=16)],
             ]
 
     print(AsciiTable(byte_table_data).table, file=file)
@@ -494,6 +493,18 @@ def process_payload_type100(field_payload, field_ids=None,
     uint16s = unpack_uint16(field_payload, endian="<")
     uint32s = unpack_uint32(field_payload, endian="<")
 
+    data_types = {
+            2:"ASCII",
+            3:"two-byte",
+            4:"two-byte",
+            5:"four-byte",
+            6:"four-byte",
+            9:"four-byte",
+            10:"8-byte - float?",
+            15:"four-byte",
+            17:"four-byte",
+            }
+
     byte_table_data = [
             ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
@@ -505,8 +516,12 @@ def process_payload_type100(field_payload, field_ids=None,
         ref_string = summarize_ref(uint32s[u32start+3], field_ids)
 
         byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+3), "uint16", "Item %d Unknown0"%i,
-                    print_list_simple(uint16s[u16start:u16start+2], bits=16)],
+                ["%d-%d"%(bstart, bstart+1), "uint16", "Item %d Data Type?"%i,
+                    print_list_simple(uint16s[u16start:u16start+1], bits=16)],
+                ["", "", "",
+                    "(" + data_types.get(uint16s[u16start:u16start+1][0],"") + ")"],
+                ["%d-%d"%(bstart+2, bstart+3), "uint16", "Item %d Unknown0"%i,
+                    print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
                 ["%d-%d"%(bstart+4, bstart+7), "uint32", "Item %d Num Words"%i,
                     print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
                 ["%d-%d"%(bstart+8, bstart+11), "uint32", "Item %d Pointer Byte Offset"%i,
@@ -663,8 +678,9 @@ def process_payload_type131(field_payload, field_ids=None,
                 ["%d-%d"%(bstart+4, bstart+7), "uint32", "Item %d Reference"%i,
                     print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
                 ["", "", "", "(%s)"%ref_string1],
-                ["%d-%d"%(bstart+8, bstart+11), "uint16", "Item %d Unknown"%i,
-                    print_list_simple(uint16s[u16start+4:u16start+6], bits=16)],
+                ["%d-%d"%(bstart+8, bstart+11), "uint32",
+                    "Item %d Length of string\n  in above Reference"%i,
+                    print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
                 ["-----", "------", "----------------", "----------------"],
                 ]
         byte_table_data.extend(byte_table_datitem)
@@ -929,6 +945,20 @@ def process_file_header(in_bytes, file=sys.stdout):
     print("byte_idx = "+repr(0), file=file)
     print(AsciiTable(byte_table_data).table, file=file)
 
+    data_start0 = uint32_list[3]
+
+    # read 11 fields to Data Block Pointers in File Header
+    byte_idx = 160
+    for i in range(11):
+        (byte_idx, field_info) = read_field(
+                in_bytes, byte_idx, file=file)
+
+    print("-"*78, file=file)
+    print("byte_idx: %d-%d"%(byte_idx,data_start0-1),file=file)
+    print(file=file)
+    print("All Zeros",file=file)
+    print(file=file)
+
 
 def report_whole_file(in_bytes, field_ids, data_start, data_len,
         filedir, filename, report_strings=True):
@@ -942,18 +972,6 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
     # FILE HEADER
 
     process_file_header(in_bytes, file=out_fh)
-
-    # read 11 fields to Data Block Pointers in File Header
-    byte_idx = 160
-    for i in range(11):
-        (byte_idx, field_info) = read_field(
-                in_bytes, byte_idx, field_ids=field_ids, file=out_fh)
-
-    print("-"*78, file=out_fh)
-    print("byte_idx: %d-%d"%(byte_idx,data_start[0]-1),file=out_fh)
-    print(file=out_fh)
-    print("All Zeros",file=out_fh)
-    print(file=out_fh)
 
     # DATA BLOCKS
 
