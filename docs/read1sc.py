@@ -32,6 +32,8 @@ test.1sc:
     image data 59946 - 783785 (last byte of file)
 """
 
+# TODO: add assertions, so we can automatically check if our understanding
+#       of file structure is correct
 
 BLOCK_PTR_TYPES = {142:0, 143:1, 132:2, 133:3, 141:4,
         140:5, 126:6, 127:7, 128:8, 129:9, 130:10, }
@@ -896,12 +898,7 @@ def process_file_header(in_bytes, file=sys.stdout):
     ascii_1 = str(in_bytes[32:56])[2:-1]
     ascii_2 = str(in_bytes[56:96])[2:-1]
     ascii_3 = str(in_bytes[96:136])[2:-1]
-    uint32_0 = unpack_uint32(in_bytes[136:140], endian="<")[0]
-    uint32_1 = unpack_uint32(in_bytes[140:144], endian="<")[0]
-    uint32_2 = unpack_uint32(in_bytes[144:148], endian="<")[0]
-    uint32_3 = unpack_uint32(in_bytes[148:152], endian="<")[0]
-    uint32_4 = unpack_uint32(in_bytes[152:156], endian="<")[0]
-    uint32_5 = unpack_uint32(in_bytes[156:160], endian="<")[0]
+    uint32_list = unpack_uint32(in_bytes[136:160], endian="<")
     byte_table_data = [
             ["File\nBytes", "Type", "Description", "Value(s)"],
             ["%d-%d"%(0,1), "uint16", "Magic Number",
@@ -911,19 +908,19 @@ def process_file_header(in_bytes, file=sys.stdout):
             ["%d-%d"%(56,95), "ASCII", "File Type, ID", ascii_2],
             ["%d-%d"%(96,135), "ASCII", "Space Padding", ascii_3],
             ["%d-%d"%(136,139), "uint32", "Unknown (200)",
-                "0x{0:08x}".format(uint32_0)],
+                "0x{0:08x}".format(uint32_list[0])],
             ["%d-%d"%(140,143), "uint32", "Unknown (3)",
-                "0x{0:08x}".format(uint32_1)],
+                "0x{0:08x}".format(uint32_list[1])],
             ["%d-%d"%(144,147), "uint32", "Unknown (0)",
-                "0x{0:08x}".format(uint32_2)],
+                "0x{0:08x}".format(uint32_list[2])],
             ["%d-%d"%(148,151), "uint32",
                 "Start of\n  Data Block 0\n  (byte offset)",
-                "{0:10d}".format(uint32_3)],
+                "{0:10d}".format(uint32_list[3])],
             ["%d-%d"%(152,155), "uint32",
                 "Length\n  Data Block 0\n  until EOF\n  (bytes)",
-                "{0:10d}".format(uint32_4)],
+                "{0:10d}".format(uint32_list[4])],
             ["%d-%d"%(156,159), "uint32", "Unknown (4096)",
-                "0x{0:08x}".format(uint32_5)],
+                "0x{0:08x}".format(uint32_list[5])],
             ]
 
     print("="*79, file=file)
