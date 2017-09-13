@@ -891,6 +891,49 @@ def get_next_data_block_end(byte_idx, data_start, data_len):
     return (block_num, end_idx)
 
 
+def process_file_header(in_bytes, file=sys.stdout):
+    uint16_0 = unpack_uint16(in_bytes[0:2], endian="<")[0]
+    ascii_0 = str(in_bytes[2:32])[2:-1]
+    ascii_1 = str(in_bytes[32:56])[2:-1]
+    ascii_2 = str(in_bytes[56:96])[2:-1]
+    ascii_3 = str(in_bytes[96:136])[2:-1]
+    uint32_0 = unpack_uint32(in_bytes[136:140], endian="<")[0]
+    uint32_1 = unpack_uint32(in_bytes[140:144], endian="<")[0]
+    uint32_2 = unpack_uint32(in_bytes[144:148], endian="<")[0]
+    uint32_3 = unpack_uint32(in_bytes[148:152], endian="<")[0]
+    uint32_4 = unpack_uint32(in_bytes[152:156], endian="<")[0]
+    uint32_5 = unpack_uint32(in_bytes[156:160], endian="<")[0]
+    byte_table_data = [
+            ["File\nBytes", "Type", "Description", "Value(s)"],
+            ["%d-%d"%(0,1), "uint16", "Magic Number",
+                "0x{0:04x}".format(uint16_0)],
+            ["%d-%d"%(2,31), "ASCII", "File Version", ascii_0],
+            ["%d-%d"%(32,55), "ASCII", "Endian Format", ascii_1],
+            ["%d-%d"%(56,95), "ASCII", "File Type, ID", ascii_2],
+            ["%d-%d"%(96,135), "ASCII", "Space Padding", ascii_3],
+            ["%d-%d"%(136,139), "uint32", "Unknown (200)",
+                "0x{0:08x}".format(uint32_0)],
+            ["%d-%d"%(140,143), "uint32", "Unknown (3)",
+                "0x{0:08x}".format(uint32_1)],
+            ["%d-%d"%(144,147), "uint32", "Unknown (0)",
+                "0x{0:08x}".format(uint32_2)],
+            ["%d-%d"%(148,151), "uint32",
+                "Start of\n  Data Block 0\n  (byte offset)",
+                "{0:10d}".format(uint32_3)],
+            ["%d-%d"%(152,155), "uint32",
+                "Length\n  Data Block 0\n  until EOF\n  (bytes)",
+                "{0:10d}".format(uint32_4)],
+            ["%d-%d"%(156,159), "uint32", "Unknown (4096)",
+                "0x{0:08x}".format(uint32_5)],
+            ]
+
+    print("="*79, file=file)
+
+    print("File Header", file=file)
+    print("byte_idx = "+repr(0), file=file)
+    print(AsciiTable(byte_table_data).table, file=file)
+
+
 def report_whole_file(in_bytes, field_ids, data_start, data_len,
         filedir, filename, report_strings=True):
     try:
@@ -901,6 +944,8 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
     print(filename, file=out_fh)
 
     # FILE HEADER
+
+    process_file_header(in_bytes, file=out_fh)
 
     # read 11 fields to Data Block Pointers in File Header
     byte_idx = 160
