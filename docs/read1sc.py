@@ -344,7 +344,34 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_type131(field_payload, field_ids=field_ids,
                     file=file)
         elif field_type == 1000:
-            process_payload_type1000(field_payload, field_ids=field_ids,
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1007:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1008:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1010:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1011:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1015:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1020:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1022:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1024:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1030:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
         else:
             process_payload_generic(field_payload, byte_idx+8, note_str,
@@ -640,92 +667,81 @@ def process_payload_type131(field_payload, field_ids=None,
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-def process_payload_type1000(field_payload, field_ids=None,
+def get_payload_ref_idx(field_payload, field_ids):
+    # find indicies of references
+    len_0mod4 = len(field_payload)//4*4
+    len_2mod4 = (len(field_payload)-2)//4*4
+    uint32s_0mod4 = unpack_uint32(field_payload[:len_0mod4], endian="<")
+    uint32s_2mod4 = unpack_uint32(field_payload[2:len_2mod4+2], endian="<")
+    ref_idx0 = [(i,x) for (i,x) in enumerate(uint32s_0mod4) if x in field_ids]
+    ref_idx2 = [(i,x) for (i,x) in enumerate(uint32s_2mod4) if x in field_ids]
+    if ref_idx2:
+        print("mod2 reference detected", sys.stderr)
+    ref_idx0.sort()
+    ref_idx2.sort()
+    return (ref_idx0, ref_idx2)
+
+
+def process_payload_generic_refs_data(field_payload, field_ids=None,
         file=sys.stdout, quiet=False):
     if field_ids is None:
         field_ids = {}
 
     # not fixed format?
-
     # TODO: just list groups of words between references
-
-    # string also shows bytes in hex
-    debug_string(
-            field_payload, 0, "bytes", multiline=True,
-            file=file)
-    if len(field_payload)%2 == 0:
-        debug_ushorts(
-                field_payload, 0, "uint16s",
-                file=file)
-    if len(field_payload)%4 == 0:
-        (out_uints, _) = debug_uints(
-                field_payload, 0, "uint32s",
-                file=file)
-        if any([x > 0x7FFFFFFF for x in out_uints]):
-            # only print signed integers if one is different than uint
-            debug_ints(
-                    field_payload, 0, "int32s",
-                    file=file)
-
-
-def process_payload_type1015(field_payload, field_ids=None,
-        file=sys.stdout):
-    if field_ids is None:
-        field_ids = {}
-
-    # not fixed format?
     
-    # TODO: just list groups of words between references
+    (ref_idx0, ref_idx2) = get_payload_ref_idx(field_payload, field_ids)
+    if ref_idx0:
+        (this_ref_idx, this_ref) = ref_idx0.pop(0)
+    else:
+        this_ref_idx = None
+    p_idx = 0
+    while True:
+        # get values until this_ref_idx or end of payload
+        if this_ref_idx is not None:
+            this_endbyte = this_ref_idx * 4
+        else:
+            this_endbyte = len(field_payload)
 
-    ditem_len = 12
+        # string also shows bytes in hex
+        if p_idx < this_endbyte:
+            debug_string(
+                    field_payload[p_idx:this_endbyte], p_idx, "bytes", multiline=True,
+                    file=file)
+            if len(field_payload[p_idx:this_endbyte])%2 == 0:
+                debug_ushorts(
+                        field_payload[p_idx:this_endbyte], p_idx, "uint16s",
+                        file=file)
+            if len(field_payload[p_idx:this_endbyte])%4 == 0:
+                (out_uints, _) = debug_uints(
+                        field_payload[p_idx:this_endbyte], p_idx, "uint32s",
+                        file=file)
+                if any([x > 0x7FFFFFFF for x in out_uints]):
+                    # only print signed integers if one is different than uint
+                    debug_ints(
+                            field_payload[p_idx:this_endbyte], p_idx, "int32s",
+                            file=file)
 
-    num_data_items = len(field_payload)//ditem_len
+        if this_ref_idx is not None:
+            ref_string = summarize_ref(this_ref, field_ids)
+            byte_table_data = [
+                    ["Field\nBytes", "Type", "Description", "Value(s)"],
+                    ["%d-%d"%(this_endbyte, this_endbyte+4), "uint32",
+                        "Reference", "%d"%this_ref],
+                    ["", "", "", "(%s)"%ref_string],
+                    ]
+            print(AsciiTable(byte_table_data).table, file=file)
+        else:
+            break
 
-    uint16s = unpack_uint16(field_payload, endian="<")
-    uint32s = unpack_uint32(field_payload, endian="<")
+        # update next starting byte
+        p_idx = this_endbyte + 4
 
-    byte_table_data = [
-            ["Field\nBytes", "Type", "Description", "Value(s)"],]
+        if ref_idx0:
+            (this_ref_idx, this_ref) = ref_idx0.pop(0)
+        else:
+            this_ref_idx = None
 
-    for i in range(num_data_items):
-        bstart = i*ditem_len + 8
-        u16start = i*(ditem_len//2)
-        u32start = i*(ditem_len//4)
-
-        ref_string0 = summarize_ref(uint32s[u32start], field_ids)
-        ref_string1 = summarize_ref(uint32s[u32start+1], field_ids)
-
-        byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+3), "uint32", "Item %d Reference"%i,
-                    print_list_simple(uint32s[u32start:u32start+1], bits=32)],
-                ["", "", "", "(%s)"%ref_string0],
-                ["%d-%d"%(bstart+4, bstart+7), "uint32", "Item %d Reference"%i,
-                    print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
-                ["", "", "", "(%s)"%ref_string1],
-                ["%d-%d"%(bstart+8, bstart+11), "uint16", "Item %d Unknown"%i,
-                    print_list_simple(uint16s[u16start+4:u16start+6], bits=16)],
-                ["-----", "------", "----------------", "----------------"],
-                ]
-        byte_table_data.extend(byte_table_datitem)
-
-    # get rid of last "----" row
-    del byte_table_data[-1]
-
-    print(AsciiTable(byte_table_data).table, file=file)
-
-
-# TODO: Type 1000
-#   probably data for Type 100's
-# TODO: Type 1007
-# TODO: Type 1008
-# TODO: Type 1010
-# TODO: Type 1011
-# TODO: Type 1015
-# TODO: Type 1020
-# TODO: Type 1022
-#   probably data for Type 100's
-# TODO: Type 1024
-# TODO: Type 1030
 
 #def read_field_type1007(in_bytes, byte_idx, note_str="??", field_data={},
 #        file=sys.stdout):
