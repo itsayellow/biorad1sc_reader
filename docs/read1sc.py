@@ -326,9 +326,9 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
         print("Field Payload:", file=file)
 
         if field_type == 0:
-            process_payload_type0(in_bytes, byte_idx+8, file=file)
+            process_payload_type0(in_bytes, file=file)
         elif field_type == 16:
-            process_payload_type16(field_payload, byte_idx+8, file=file)
+            process_payload_type16(field_payload, file=file)
         elif field_type in BLOCK_PTR_TYPES:
             process_payload_blockptr(field_payload, field_type=field_type,
                     file=file)
@@ -381,8 +381,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
         else:
-            process_payload_generic(field_payload, byte_idx+8, note_str,
-                    file=file)
+            process_payload_generic(field_payload, note_str, file=file)
 
     field_info['type'] = field_type
     field_info['id'] = field_id
@@ -392,35 +391,35 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
     return (byte_idx+field_len, field_info)
 
 
-def process_payload_generic(field_payload, payload_idx, note_str,
+def process_payload_generic(field_payload, note_str,
         file=sys.stdout, quiet=False):
     # string also shows bytes in hex
     debug_string(
-            field_payload, payload_idx, note_str, multiline=True,
+            field_payload, 0, note_str, multiline=True,
             file=file, quiet=quiet)
     if len(field_payload)%2 == 0:
         debug_ushorts(
-                field_payload, payload_idx, "ushorts",
+                field_payload, 0, "ushorts",
                 file=file, quiet=quiet)
     if len(field_payload)%4 == 0:
         (out_uints, _) = debug_uints(
-                field_payload, payload_idx, "uints",
+                field_payload, 0, "uints",
                 file=file, quiet=quiet)
         if any([x > 0x7FFFFFFF for x in out_uints]):
             # only print signed integers if one is different than uint
             debug_ints(
-                    field_payload, payload_idx, "ints",
+                    field_payload, 0, "ints",
                     file=file, quiet=quiet)
 
 
-def process_payload_type0(in_bytes, payload_idx, file=sys.stdout, quiet=False):
+def process_payload_type0(in_bytes, file=sys.stdout, quiet=False):
     # Simple.  End Of Data Block field has no payload
     print(file=file)
     print("** End Of Data Block Field **", file=file)
     print(file=file)
 
 
-def process_payload_type16(field_payload, payload_idx, file=sys.stdout):
+def process_payload_type16(field_payload, file=sys.stdout):
     field_end = len(field_payload) + 8 - 1
     out_string = unpack_string(field_payload)
 
@@ -434,7 +433,7 @@ def process_payload_type16(field_payload, payload_idx, file=sys.stdout):
     if not is_valid_string(field_payload):
         # some byte does not resolve to valid utf-8 character
         print("Invalid character in string!  Error.", file=file)
-        debug_bytes(field_payload, payload_idx, "bytes", file=file)
+        debug_bytes(field_payload, 0, "bytes", file=file)
 
 
 def process_payload_blockptr(field_payload, field_type,
@@ -733,7 +732,7 @@ def process_payload_generic_refs_data(field_payload, field_ids=None,
             ref_string = summarize_ref(this_ref, field_ids)
             byte_table_data = [
                     ["Field\nBytes", "Type", "Description", "Value(s)"],
-                    ["%d-%d"%(this_endbyte, this_endbyte+4), "uint32",
+                    ["%d-%d"%(this_endbyte, this_endbyte+3), "uint32",
                         "Reference", "%d"%this_ref],
                     ["", "", "", "(%s)"%ref_string],
                     ]
