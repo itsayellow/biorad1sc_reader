@@ -346,6 +346,9 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
         elif field_type == 1000:
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
+        elif field_type == 1004:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
         elif field_type == 1007:
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
@@ -371,6 +374,9 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
         elif field_type == 1030:
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
+        elif field_type == 1040:
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
         else:
