@@ -896,7 +896,7 @@ def process_datablock_footer(footer_bytes, byte_idx, block_num,
         file=sys.stdout):
     print("-"*79, file=file)
     print("byte_idx = "+repr(byte_idx), file=file)
-    print("Data Block %s Footer"%block_num, file=file)
+    print("Data Block %02d Footer"%block_num, file=file)
 
     # table header row
     byte_table_data = [
