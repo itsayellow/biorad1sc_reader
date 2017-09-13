@@ -214,6 +214,7 @@ def debug_bytes(byte_stream, byte_start, note_str, quiet=False, file=sys.stdout)
             byte_stream, byte_start, note_str, "B", quiet=quiet, file=file)
     return (out_bytes, byte_idx)
 
+
 def debug_string(byte_stream, byte_start, note_str, multiline=False,
         quiet=False, file=sys.stdout):
     chars_in_line = 30
@@ -749,91 +750,6 @@ def process_payload_generic_refs_data(field_payload, field_ids=None,
             this_ref_idx = None
 
 
-#def read_field_type1007(in_bytes, byte_idx, note_str="??", field_data={},
-#        file=sys.stdout):
-#    # TODO: extract data for future field_type=16
-#    field_info = {}
-#    # read header
-#    (field_type, field_len, field_id, header_ushorts, header_uints) = print_field_header(
-#            in_bytes, byte_idx, file=file)
-#
-#    # read payload
-#    print("Field Payload:", file=file)
-#    field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
-#
-#    (out_string, _) = debug_string(
-#            field_payload, 0, "string", multiline=True, file=file)
-#    (out_uints, _) = debug_uints(
-#            field_payload, byte_idx+8, "uints", file=file)
-#    if any([x>0x7FFFFFFF for x in out_uints]):
-#        (out_ints, _) = debug_ints(
-#                field_payload, byte_idx+8, "ints", file=file)
-#
-#    # TODO: what is the format of this??
-#    #for i in range(len(out_uints)//4):
-#    #    field_data[out_uints[i*4+3]] = out_uints[i*4:i*4+4]
-#
-#    field_info['type'] = field_type
-#    field_info['payload'] = field_payload
-#    field_info['data'] = field_data
-#    return (byte_idx+field_len, field_info)
-
-
-#def read_field_type1022(in_bytes, byte_idx, note_str="??", field_data={},
-#        file=sys.stdout):
-#    field_info = {}
-#    # read header
-#    (field_type, field_len, field_id, header_ushorts, header_uints) = print_field_header(
-#            in_bytes, byte_idx, file=file)
-#
-#    # read payload
-#    print("Field Payload:", file=file)
-#    field_payload = in_bytes[byte_idx+8:byte_idx+field_len]
-#
-#    (out_string, _) = debug_string(
-#            field_payload, 0, "string", multiline=True, file=file)
-#    (out_uints, _) = debug_uints(
-#            field_payload, byte_idx+8, "uints", file=file)
-#    if any([x>0x7FFFFFFF for x in out_uints]):
-#        (out_ints, _) = debug_ints(
-#                field_payload, byte_idx+8, "ints", file=file)
-#
-#    # first three uints are data_id tags, no associated data
-#    field_data[out_uints[0]] = [b'', 1022, byte_idx, byte_idx+8]
-#    field_data[out_uints[1]] = [b'', 1022, byte_idx, byte_idx+8+4]
-#    field_data[out_uints[2]] = [b'', 1022, byte_idx, byte_idx+8+8]
-#
-#    field_info['type'] = field_type
-#    field_info['payload'] = field_payload
-#    field_info['data'] = field_data
-#    return (byte_idx+field_len, field_info)
-
-
-#def jump_idx(jump_from, jump_to, chk_field_start, chk_byte_idx,
-#        file=sys.stdout):
-#    if chk_field_start==jump_from and chk_byte_idx==jump_from:
-#        print("---------------------------------------------------------", file=file)
-#        print("jump of delta {0:d}=0x{0:x}".format(jump_to-jump_from), file=file)
-#
-#        # find how many zeros:
-#        test_byte_stream = in_bytes[jump_from:jump_to].lstrip(b'\x00')
-#        num_zeros = len(in_bytes[jump_from:jump_to])-len(test_byte_stream)
-#        if num_zeros > 0:
-#            print("%6d-%6d"%(jump_from,jump_from+num_zeros-1), end="", file=file)
-#            print("   All Zeros %d*(0,)"%(num_zeros), file=file)
-#            jump_from = jump_from+num_zeros
-#
-#        #(out_bytes, _) = debug_bytes(
-#        #        in_bytes[jump_from:jump_to], jump_from, "jumped bytes",
-#        #        file=file)
-#        (out_shorts, _) = debug_ushorts(
-#                in_bytes[jump_from:jump_to], jump_from, "jumped shorts",
-#                file=file)
-#        return jump_to
-#    else:
-#        return byte_idx
-
-
 # Debugging routine used to search backwards from known field to try and find
 #   previous possible fields
 # Not really used anymore
@@ -891,7 +807,6 @@ def process_datablock_header(header_bytes, byte_idx, block_num,
     print(AsciiTable(byte_table_data).table, file=file)
 
 
-
 def process_datablock_footer(footer_bytes, byte_idx, block_num,
         file=sys.stdout):
     print("-"*79, file=file)
@@ -931,6 +846,7 @@ def process_datablock_footer(footer_bytes, byte_idx, block_num,
     del byte_table_data[-1]
 
     print(AsciiTable(byte_table_data).table, file=file)
+
 
 def print_datablock(in_bytes, data_start, data_len, block_num, field_ids=None,
         file=sys.stdout, report_strings=True):
