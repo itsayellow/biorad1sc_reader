@@ -38,6 +38,32 @@ test.1sc:
 BLOCK_PTR_TYPES = {142:0, 143:1, 132:2, 133:3, 141:4,
         140:5, 126:6, 127:7, 128:8, 129:9, 130:10, }
 
+DATA_TYPES = {
+        1:"byte",
+        2:"ASCII",
+        3:"u?int16",
+        4:"u?int16",
+        5:"u?int32",
+        6:"u?int32",
+        7:"u?int64",
+        9:"u?int64",
+        10:"8-byte - float?",
+        15:"uint32 Reference",
+        17:"uint32 Reference",
+        131:"12-byte??",
+        1001:"8- or 24-byte??",
+        1002:"24-byte??",
+        1003:"8-byte??",
+        1004:"8- or 16-byte??",
+        1005:"64-byte??",
+        1006:"640-byte??",
+        1010:"144-byte??",
+        1016:"440-byte??",
+        1020:"32-byte??",
+        1027:"8-byte??",
+        1032:"12-byte??",
+        }
+
 
 def print_list(byte_list, bits=8, address=None, var_tab=False, file=sys.stdout):
     """
@@ -495,7 +521,7 @@ def process_payload_type100(field_payload, field_ids=None,
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
-    field_payload_items = {}
+    field_payload_regions = {}
 
     assert len(field_payload) % 36 == 0, \
             "Field Type 100: payload size should be multiple of 36 bytes"
@@ -509,20 +535,6 @@ def process_payload_type100(field_payload, field_ids=None,
     uint16s = unpack_uint16(field_payload, endian="<")
     uint32s = unpack_uint32(field_payload, endian="<")
 
-    data_types = {
-            1:"byte",
-            2:"ASCII",
-            3:"u?int16",
-            4:"u?int16",
-            5:"u?int32",
-            6:"u?int32",
-            7:"u?int64",
-            9:"u?int64",
-            10:"8-byte - float?",
-            15:"uint32 Reference",
-            17:"uint32 Reference",
-            }
-
     byte_table_data = [
             ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
@@ -533,13 +545,22 @@ def process_payload_type100(field_payload, field_ids=None,
 
         ref_string = summarize_ref(uint32s[u32start+3], field_ids)
         
+        field_payload_regions[i] = {}
+        field_payload_regions[i]['data_type'] = uint16s[u16start]
+        field_payload_regions[i]['label'] = ref_string[1:-1]
+        field_payload_regions[i]['index'] = uint16s[u16start+1]
+        field_payload_regions[i]['num_words'] = uint32s[u32start+1]
+        field_payload_regions[i]['byte_offset'] = uint32s[u32start+2]
+        field_payload_regions[i]['word_size'] = uint32s[u32start+5]
+        field_payload_regions[i]['ref_field_type'] = uint16s[u32start+13]
+
         if not quiet:
             byte_table_datitem = [
                     ["%d-%d"%(bstart, bstart+1), "uint16",
                         "Region %d Data Type"%i,
                         print_list_simple(uint16s[u16start:u16start+1], bits=16)],
                     ["", "", "",
-                        "(" + data_types.get(uint16s[u16start:u16start+1][0],"") + ")"],
+                        "(" + DATA_TYPES.get(uint16s[u16start:u16start+1][0],"") + ")"],
                     ["%d-%d"%(bstart+2, bstart+3), "uint16",
                         "Region %d Index"%i,
                         print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
@@ -579,6 +600,8 @@ def process_payload_type100(field_payload, field_ids=None,
         del byte_table_data[-1]
 
         print(AsciiTable(byte_table_data).table, file=file)
+
+    field_info_payload['regions'] = field_payload_regions
 
     return field_info_payload
 
@@ -623,7 +646,7 @@ def process_payload_type101(field_payload, field_ids=None,
         field_payload_items[data_field_type]['num_regions'] = uint16s[u16start+3]
         field_payload_items[data_field_type]['data_key_ref'] = uint32s[u32start+2]
         field_payload_items[data_field_type]['total_bytes'] = uint32s[u32start+3]
-        field_payload_items[data_field_type]['label'] = ref_label
+        field_payload_items[data_field_type]['label'] = ref_label[1:-1]
 
         if not quiet:
             byte_table_datitem = [
@@ -691,7 +714,7 @@ def process_payload_type102(field_payload, field_ids=None,
     ref_label = summarize_ref(uint32s[u32start+3], field_ids)
 
     field_info_payload['collection_num_items'] = uint16s[u16start+3]
-    field_info_payload['collection_label'] = ref_label
+    field_info_payload['collection_label'] = ref_label[1:-1]
     field_info_payload['collection_ref'] = uint32s[u32start+2]
 
     if not quiet:
@@ -1283,7 +1306,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
         if field_info['type'] == 102:
             print("-"*79, file=out_fh)
             print("Data Collection", file=out_fh)
-            print(field_info['collection_label'], file=out_fh)
+            print("'%s'"%field_info['collection_label'], file=out_fh)
             collection_ref = field_info['collection_ref']
             data_field_types = {}
 
@@ -1295,10 +1318,22 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
 
         if field_info['type'] > 102:
             if field_info['type'] in  data_field_types:
+                field_data = in_bytes[field_start:byte_idx]
                 this_data_field = data_field_types[field_info['type']]
-                print("    " + "-"*20, file=out_fh)
-                print("    '%s'"%this_data_field['label'], file=out_fh)
-                print("    Field Type: %4d"%field_info['type'], file=out_fh)
+                data_key = field_ids[this_data_field['data_key_ref']]['regions']
+                print(" "*4 + "-"*20, file=out_fh)
+                print(" "*4 + "'%s'"%this_data_field['label'], file=out_fh)
+                print(" "*4 + "Field Type: %4d"%field_info['type'], file=out_fh)
+                for dkey in data_key:
+                    region = data_key[dkey]
+                    print(" "*8 + "-"*20, file=out_fh)
+                    print(" "*8 + "'%s'"%region['label'], file=out_fh )
+                    print(" "*8 + "Data Type  : %d"%region['data_type'] + " (%s)"%DATA_TYPES.get(region['data_type'],""),
+                            file=out_fh)
+                    print(" "*8 + "Index      : %d"%region['index'], file=out_fh)
+                    print(" "*8 + "Num. Words : %d"%region['num_words'], file=out_fh)
+                    print(" "*8 + "Byte Offset: %d"%region['byte_offset'], file=out_fh)
+                    print(" "*8 + "Word Size  : %d"%region['word_size'], file=out_fh)
             else:
                 print("    Field Type: %4d NOT IN COLLECTION", file=out_fh)
 
@@ -1308,75 +1343,12 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             print("-"*79, file=out_fh)
             break
 
-
     out_fh.close()
 
 
-
-def parse_file(filename, report_strings=True):
-    print(filename, file=sys.stderr)
-
-    filename = os.path.realpath(filename)
-    filedir = os.path.dirname(filename)
-
-    with open(filename, 'rb') as in_fh:
-        in_bytes = in_fh.read()
-
-    byte_idx = 160
-
-    #SEARCH DEBUG
-    #search_backwards(in_bytes, len(in_bytes)-1, min_search_idx=59881)
-    #exit()
-
-    # dict of keys: field_ids, items: field_payloads
-    field_ids = {}
-
-    # PASS 1
-    #   get all fields, field_id
-    print("    Pass 1: getting Field IDs, pointers", file=sys.stderr)
-
-    # reset loop variables
-    byte_idx = 160
-    data_start = {}
-    data_len = {}
-    
-    # read 11 fields to Data Block Pointers in File Header
-    byte_idx = 160
-    for i in range(11):
-        (byte_idx, field_info) = read_field(in_bytes, byte_idx, quiet=True)
-        block_num = BLOCK_PTR_TYPES[field_info['type']]
-        (data_start[block_num], data_len[block_num]) = parse_datablock(
-            field_info['payload'])
-    
-    # read all remaining fields in file after Data Block 0 Header
-    byte_idx = data_start[0] + 8
-    while byte_idx < len(in_bytes):
-        field_start = byte_idx
-
-        (byte_idx, field_info) = read_field(
-                in_bytes, byte_idx,
-                note_str="",
-                quiet=True
-                )
-
-        if field_info['type'] == 0:
-            # we just saw an End Of Data Block Field
-            (block_num, end_idx) = get_next_data_block_end(
-                    byte_idx, data_start, data_len)
-
-            # skip past Data Block Footer and Header to first field
-            #   of next Data Block
-            byte_idx = end_idx + 8
-
-        if field_info['id'] != 0:
-            field_ids[field_info['id']] = field_info
-
-        # break if we still aren't advancing
-        if byte_idx == field_start:
-            break
-
-        if byte_idx > data_start[10]:
-            break
+def update_field_ids(in_bytes, field_ids, data_start, data_len):
+    if field_ids is None:
+        field_ids = {}
 
     # reset byte_idx to right after Data Block 0 Header
     byte_idx = data_start[0]+8
@@ -1395,6 +1367,15 @@ def parse_file(filename, report_strings=True):
                 field_ids=field_ids
                 )
 
+        if field_info['type'] == 0:
+            # we just saw an End Of Data Block Field
+            (block_num, end_idx) = get_next_data_block_end(
+                    byte_idx, data_start, data_len)
+
+            # skip past Data Block Footer and Header to first field
+            #   of next Data Block
+            byte_idx = end_idx + 8
+
         if field_info['id'] != 0:
             # update references field using field_info
             field_ids[field_info['id']] = field_info
@@ -1404,7 +1385,54 @@ def parse_file(filename, report_strings=True):
 
         # break if we still aren't advancing
         if byte_idx == field_start:
+            raise Exception("Error parsing file: byte_idx == field_start")
             break
+
+    return is_referenced
+
+
+def get_all_field_info(in_bytes, field_ids):
+    # reset loop variables
+    byte_idx = 160
+    data_start = {}
+    data_len = {}
+    
+    # read 11 fields to Data Block Pointers in File Header
+    byte_idx = 160
+    for i in range(11):
+        (byte_idx, field_info) = read_field(in_bytes, byte_idx, quiet=True)
+        block_num = BLOCK_PTR_TYPES[field_info['type']]
+        (data_start[block_num], data_len[block_num]) = parse_datablock(
+            field_info['payload'])
+
+    field_ids = {}    
+    update_field_ids(in_bytes, field_ids, data_start, data_len)
+    is_referenced = update_field_ids(in_bytes, field_ids, data_start, data_len)
+
+    return(field_ids, data_start, data_len, is_referenced)
+
+
+def parse_file(filename, report_strings=True):
+    print(filename, file=sys.stderr)
+
+    filename = os.path.realpath(filename)
+    filedir = os.path.dirname(filename)
+
+    with open(filename, 'rb') as in_fh:
+        in_bytes = in_fh.read()
+
+    #SEARCH DEBUG
+    #search_backwards(in_bytes, len(in_bytes)-1, min_search_idx=59881)
+    #exit()
+
+    # dict of keys: field_ids, items: field_payloads
+    field_ids = {}
+
+    # PASS 1
+    #   get all field info
+    print("    Pass 1: getting Field IDs, pointers", file=sys.stderr)
+    (field_ids, data_start, data_len, is_referenced) = get_all_field_info(
+            in_bytes, field_ids)
 
     # PASS 2
     #   report on whole file to dump.txt
