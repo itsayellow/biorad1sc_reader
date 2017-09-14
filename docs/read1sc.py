@@ -297,6 +297,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
     if field_ids is None:
         field_ids = {}
     field_info = {}
+    field_info_payload = {}
 
     # quiet=True if Field Type is String and we're not reporting them
     field_type_pre = unpack_uint16(in_bytes[byte_idx:byte_idx+2], endian="<")[0]
@@ -335,14 +336,16 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_blockptr(field_payload, field_type=field_type,
                     file=file)
         elif field_type == 100:
-            process_payload_type100(field_payload, field_ids=field_ids,
+            field_info_payload = process_payload_type100(
+                    field_payload, field_ids=field_ids,
                     file=file)
         elif field_type == 101:
-            process_payload_type101(field_payload, field_ids=field_ids,
+            field_info_payload = process_payload_type101(
+                    field_payload, field_ids=field_ids,
                     file=file)
         elif field_type == 102:
-            process_payload_type102(field_payload, field_ids=field_ids,
-                    file=file)
+            field_info_payload = process_payload_type102(
+                    field_payload, field_ids=field_ids, file=file)
         elif field_type == 131:
             process_payload_type131(field_payload, field_ids=field_ids,
                     file=file)
@@ -389,6 +392,8 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
     field_info['id'] = field_id
     field_info['payload'] = field_payload
     field_info['references'] = references
+
+    field_info.update(field_info_payload)
 
     return (byte_idx+field_len, field_info)
 
@@ -483,6 +488,7 @@ def process_payload_type100(field_payload, field_ids=None,
         file=sys.stdout):
     if field_ids is None:
         field_ids = {}
+    field_info_payload = {}
 
     # every 36 bytes is a new Data Item
     # each uint at bytes 12-15 + 36*N is a reference to Field Type 16
@@ -496,12 +502,12 @@ def process_payload_type100(field_payload, field_ids=None,
     data_types = {
             1:"byte",
             2:"ASCII",
-            3:"two-byte",
-            4:"two-byte",
-            5:"four-byte",
-            6:"four-byte",
+            3:"u?int16",
+            4:"u?int16",
+            5:"u?int32",
+            6:"u?int32",
             7:"u?int64",
-            9:"four-byte",
+            9:"u?int64",
             10:"8-byte - float?",
             15:"uint32 Reference",
             17:"uint32 Reference",
@@ -519,36 +525,40 @@ def process_payload_type100(field_payload, field_ids=None,
 
         byte_table_datitem = [
                 ["%d-%d"%(bstart, bstart+1), "uint16",
-                    "Item %d Data Type"%i,
+                    "Region %d Data Type"%i,
                     print_list_simple(uint16s[u16start:u16start+1], bits=16)],
                 ["", "", "",
                     "(" + data_types.get(uint16s[u16start:u16start+1][0],"") + ")"],
                 ["%d-%d"%(bstart+2, bstart+3), "uint16",
-                    "Item %d Index"%i,
+                    "Region %d Index"%i,
                     print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
                 ["%d-%d"%(bstart+4, bstart+7), "uint32",
-                    "Item %d Num Words"%i,
+                    "Region %d Num Words"%i,
                     print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
                 ["%d-%d"%(bstart+8, bstart+11), "uint32",
-                    "Item %d Pointer Byte Offset"%i,
+                    "Region %d Pointer Byte Offset"%i,
                     print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
                 ["%d-%d"%(bstart+12, bstart+15), "uint32",
-                    "Item %d Label (Reference)"%i,
+                    "Region %d Label (Reference)"%i,
                     print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
                 ["", "", "", "(%s)"%ref_string],
-                ["%d-%d"%(bstart+16, bstart+19), "uint16", "Item %d Unknown1"%i,
+                ["%d-%d"%(bstart+16, bstart+19), "uint16",
+                    "Region %d Unknown1"%i,
                     print_list_simple(uint16s[u16start+8:u16start+10], bits=16)],
-                ["%d-%d"%(bstart+20, bstart+23), "uint32", "Item %d Word Size (bytes)"%i,
+                ["%d-%d"%(bstart+20, bstart+23), "uint32",
+                    "Region %d Word Size (bytes)"%i,
                     print_list_simple(uint32s[u32start+5:u32start+6], bits=32)],
                 ["%d-%d"%(bstart+24, bstart+25), "uint16",
-                    "Item %d Unknown2"%i,
+                    "Region %d Unknown2"%i,
                     print_list_simple(uint16s[u16start+12:u16start+13], bits=16)],
                 ["%d-%d"%(bstart+26, bstart+27), "uint16",
-                    "Item %d Field Type\n  that Ref. points to"%i,
+                    "Region %d Field Type\n  that Ref. points to"%i,
                     print_list_simple(uint16s[u16start+13:u16start+14], bits=16)],
-                ["%d-%d"%(bstart+28, bstart+31), "uint16", "Item %d Unknown3"%i,
+                ["%d-%d"%(bstart+28, bstart+31), "uint16",
+                    "Region %d Unknown3"%i,
                     print_list_simple(uint16s[u16start+14:u16start+16], bits=16)],
-                ["%d-%d"%(bstart+32, bstart+35), "uint16", "Item %d Unknown4"%i,
+                ["%d-%d"%(bstart+32, bstart+35), "uint16",
+                    "Region %d Unknown4"%i,
                     print_list_simple(uint16s[u16start+16:u16start+18], bits=16)],
                 ["-----", "------", "------------------", "----------------"],
                 ]
@@ -559,11 +569,15 @@ def process_payload_type100(field_payload, field_ids=None,
 
     print(AsciiTable(byte_table_data).table, file=file)
 
+    return field_info_payload
+
 
 def process_payload_type101(field_payload, field_ids=None,
         file=sys.stdout):
     if field_ids is None:
         field_ids = {}
+    field_info_payload = {}
+    field_payload_items = {}
 
     # every 20 bytes is a new Data Item
     # each uint at bytes 8-11 + 20*N is a reference
@@ -579,12 +593,16 @@ def process_payload_type101(field_payload, field_ids=None,
             ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
     for i in range(num_data_items):
+        field_payload_items[i] = {}
+
         bstart = i*ditem_len + 8
         u16start = i*(ditem_len//2)
         u32start = i*(ditem_len//4)
 
         ref_string0 = summarize_ref(uint32s[u32start+2], field_ids)
         ref_string1 = summarize_ref(uint32s[u32start+4], field_ids)
+
+        field_payload_items[i]['data_field_type'] = uint16s[u16start]
 
         byte_table_datitem = [
                 ["%d-%d"%(bstart, bstart+1), "uint16",
@@ -618,11 +636,19 @@ def process_payload_type101(field_payload, field_ids=None,
 
     print(AsciiTable(byte_table_data).table, file=file)
 
+    field_info_payload['items'] = field_payload_items
+
+    return field_info_payload
+
 
 def process_payload_type102(field_payload, field_ids=None,
         file=sys.stdout):
     if field_ids is None:
         field_ids = {}
+    field_info_payload = {}
+
+    assert len(field_payload) == 16, \
+            "Field Type 102 should have length of 20"
 
     # every 16 bytes is a new Data Item
     # each uint at bytes 8-11 + 16*N is a reference
@@ -634,46 +660,51 @@ def process_payload_type102(field_payload, field_ids=None,
     uint16s = unpack_uint16(field_payload, endian="<")
     uint32s = unpack_uint32(field_payload, endian="<")
 
+    bstart = 8
+    u16start = 0
+    u32start = 0
+
+    ref_type101 = summarize_ref(uint32s[u32start+2], field_ids)
+    ref_label = summarize_ref(uint32s[u32start+3], field_ids)
+
+    field_info_payload['collection_num_items'] = uint16s[u16start+3]
+    field_info_payload['collection_label'] = ref_label
+    field_info_payload['collection_ref'] = uint32s[u32start+2]
+
     byte_table_data = [
             ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
-    for i in range(num_data_items):
-        bstart = i*ditem_len + 8
-        u16start = i*(ditem_len//2)
-        u32start = i*(ditem_len//4)
-
-        ref_string0 = summarize_ref(uint32s[u32start+2], field_ids)
-        ref_string1 = summarize_ref(uint32s[u32start+3], field_ids)
-
-        byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+1), "uint16",
-                    "Item %d Unknown0"%i,
-                    print_list_simple(uint16s[u16start:u16start+1], bits=16)],
-                ["%d-%d"%(bstart+2, bstart+3), "uint16",
-                    "Item %d Unknown1"%i,
-                    print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
-                ["%d-%d"%(bstart+4, bstart+5), "uint16",
-                    "Item %d Unknown2\n  (1000)"%i,
-                    print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
-                ["%d-%d"%(bstart+6, bstart+7), "uint16",
-                    "Item %d Items in Collection"%i,
-                    print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
-                ["%d-%d"%(bstart+8, bstart+11), "uint32",
-                    "Item %d Collection"%i,
-                    print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
-                ["", "", "  (Reference to Type 101)", "(%s)"%ref_string0],
-                ["%d-%d"%(bstart+12, bstart+15), "uint32",
-                    "Item %d Label (Reference)"%i,
-                    print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
-                ["", "", "", "(%s)"%ref_string1],
-                ["-----", "------", "----------------", "----------------"],
-                ]
-        byte_table_data.extend(byte_table_datitem)
+    byte_table_datitem = [
+            ["%d-%d"%(bstart, bstart+1), "uint16",
+                "Unknown0",
+                print_list_simple(uint16s[u16start:u16start+1], bits=16)],
+            ["%d-%d"%(bstart+2, bstart+3), "uint16",
+                "Unknown1",
+                print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
+            ["%d-%d"%(bstart+4, bstart+5), "uint16",
+                "Unknown2\n  (1000)",
+                print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
+            ["%d-%d"%(bstart+6, bstart+7), "uint16",
+                "Items in Collection",
+                print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
+            ["%d-%d"%(bstart+8, bstart+11), "uint32",
+                "Collection Reference",
+                print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
+            ["", "", "  (Reference to Type 101)", "(%s)"%ref_type101],
+            ["%d-%d"%(bstart+12, bstart+15), "uint32",
+                "Label (Reference)",
+                print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
+            ["", "", "", "(%s)"%ref_label],
+            ["-----", "------", "----------------", "----------------"],
+            ]
+    byte_table_data.extend(byte_table_datitem)
 
     # get rid of last "----" row
     del byte_table_data[-1]
 
     print(AsciiTable(byte_table_data).table, file=file)
+    
+    return field_info_payload
 
 
 def process_payload_type131(field_payload, field_ids=None,
@@ -1048,8 +1079,7 @@ def report_whole_file(in_bytes, field_ids, data_start, data_len,
         # break if we still aren't advancing
         if byte_idx == field_start:
             print("ERROR BREAK!!!!", file=out_fh)
-            print("-----------------------------------------------------------",
-                    file=out_fh)
+            print("-"*79, file=out_fh)
             break
 
         if byte_idx > data_start[10]:
@@ -1196,11 +1226,9 @@ def report_hierarchy(field_ids, is_referenced, filedir):
     root_ids = [x for x in field_ids if field_ids[x]['type'] in root_types]
 
     for field_id in root_ids:
-        print("-------------------------------------------------------------",
-                file=out_fh)
+        print("-"*79, file=out_fh)
         recurse_fields(field_id, field_ids, 0, found_ids, file=out_fh)
-    print("-------------------------------------------------------------",
-            file=out_fh)
+    print("-"*79, file=out_fh)
 
     for this_id in found_ids:
         missed_ids.remove(this_id)
@@ -1208,6 +1236,45 @@ def report_hierarchy(field_ids, is_referenced, filedir):
     print(missed_ids, file=out_fh)
 
     out_fh.close()
+
+ 
+def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
+        is_referenced, filedir, filename, report_strings=True):
+    try:
+        out_fh = open(os.path.join(filedir, "hierarchy2.txt"), "w")
+    except:
+        print("Error opening hierarchy2.txt")
+
+    print(filename, file=out_fh)
+
+    # start at beginning of Data Block 0 fields
+    byte_idx = data_start[0] + 8
+    # read all fields in file after File Header
+    while byte_idx < data_start[10]:
+        field_start = byte_idx
+        (byte_idx, field_info) = read_field(
+                in_bytes, byte_idx, field_ids=field_ids, file=out_fh,
+                report_strings=report_strings)
+        
+        if field_info['type'] == 0:
+            # we just saw an End Of Data Block Field
+            (block_num, end_idx) = get_next_data_block_end(
+                    byte_idx, data_start, data_len)
+            # skip to first field of next Data Block
+            byte_idx = end_idx + 8
+
+        if field_info['type'] == 102:
+            data_field_types = {}
+
+        # break if we still aren't advancing
+        if byte_idx == field_start:
+            print("ERROR BREAK!!!!", file=out_fh)
+            print("-"*79, file=out_fh)
+            break
+
+
+    out_fh.close()
+
 
 
 def parse_file(filename, report_strings=True):
@@ -1317,8 +1384,8 @@ def parse_file(filename, report_strings=True):
 
     # PASS 4
     #   report on hierarchy
-    report_hierarchy(field_ids, is_referenced,
-            filedir)
+    report_hierarchy2(in_bytes, data_start, data_len, field_ids,
+            is_referenced, filedir, filename, report_strings=report_strings)
 
 
 def process_command_line(argv):
