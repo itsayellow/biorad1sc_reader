@@ -490,6 +490,9 @@ def process_payload_type100(field_payload, field_ids=None,
         field_ids = {}
     field_info_payload = {}
 
+    assert len(field_payload) % 36 == 0, \
+            "Field Type 100: payload size should be multiple of 36 bytes"
+
     # every 36 bytes is a new Data Item
     # each uint at bytes 12-15 + 36*N is a reference to Field Type 16
     ditem_len = 36
@@ -573,11 +576,14 @@ def process_payload_type100(field_payload, field_ids=None,
 
 
 def process_payload_type101(field_payload, field_ids=None,
-        file=sys.stdout):
+        file=sys.stdout, quiet=False):
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
     field_payload_items = {}
+
+    assert len(field_payload) % 20 == 0, \
+            "Field Type 101: payload size should be multiple of 20 bytes"
 
     # every 20 bytes is a new Data Item
     # each uint at bytes 8-11 + 20*N is a reference
@@ -599,42 +605,48 @@ def process_payload_type101(field_payload, field_ids=None,
         u16start = i*(ditem_len//2)
         u32start = i*(ditem_len//4)
 
-        ref_string0 = summarize_ref(uint32s[u32start+2], field_ids)
-        ref_string1 = summarize_ref(uint32s[u32start+4], field_ids)
+        ref_type100 = summarize_ref(uint32s[u32start+2], field_ids)
+        ref_label = summarize_ref(uint32s[u32start+4], field_ids)
 
         field_payload_items[i]['data_field_type'] = uint16s[u16start]
+        field_payload_items[i]['num_regions'] = uint16s[u16start+3]
+        field_payload_items[i]['data_key_ref'] = uint32s[u32start+2]
+        field_payload_items[i]['total_bytes'] = uint32s[u32start+3]
+        field_payload_items[i]['label'] = ref_label
 
-        byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+1), "uint16",
-                    "Item %d Field Type\n  containing data"%i,
-                    print_list_simple(uint16s[u16start:u16start+1], bits=16)],
-                ["%d-%d"%(bstart+2, bstart+3), "uint16",
-                    "Item %d Unknown0\n  (4,5,6,7,16,20,21,22,23)"%i,
-                    print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
-                ["%d-%d"%(bstart+4, bstart+5),"uint16",
-                    "Item %d Unknown1\n  (1000)"%i,
-                    print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
-                ["%d-%d"%(bstart+6, bstart+7), "uint16",
-                    "Item %d Num. Items in data"%i,
-                    print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
-                ["%d-%d"%(bstart+8, bstart+11), "uint32", "Item %d Data Key"%i,
-                    print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
-                ["", "", "  (Reference to Type 100)", "(%s)"%ref_string0],
-                ["%d-%d"%(bstart+12, bstart+15), "uint32",
-                    "Item %d Total bytes in data"%i,
-                    print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
-                ["%d-%d"%(bstart+16, bstart+19), "uint32",
-                    "Item %d Label (Reference)"%i,
-                    print_list_simple(uint32s[u32start+4:u32start+5], bits=32)],
-                ["", "", "", "(%s)"%ref_string1],
-                ["-----", "------", "----------------", "----------------"],
-                ]
-        byte_table_data.extend(byte_table_datitem)
+        if not quiet:
+            byte_table_datitem = [
+                    ["%d-%d"%(bstart, bstart+1), "uint16",
+                        "Item %d Field Type\n  containing data"%i,
+                        print_list_simple(uint16s[u16start:u16start+1], bits=16)],
+                    ["%d-%d"%(bstart+2, bstart+3), "uint16",
+                        "Item %d Unknown0\n  (4,5,6,7,16,20,21,22,23)"%i,
+                        print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
+                    ["%d-%d"%(bstart+4, bstart+5),"uint16",
+                        "Item %d Unknown1\n  (1000)"%i,
+                        print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
+                    ["%d-%d"%(bstart+6, bstart+7), "uint16",
+                        "Item %d Num. Regions in data"%i,
+                        print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
+                    ["%d-%d"%(bstart+8, bstart+11), "uint32", "Item %d Data Key"%i,
+                        print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
+                    ["", "", "  (Reference to Type 100)", "(%s)"%ref_type100],
+                    ["%d-%d"%(bstart+12, bstart+15), "uint32",
+                        "Item %d Total bytes in data"%i,
+                        print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
+                    ["%d-%d"%(bstart+16, bstart+19), "uint32",
+                        "Item %d Label (Reference)"%i,
+                        print_list_simple(uint32s[u32start+4:u32start+5], bits=32)],
+                    ["", "", "", "(%s)"%ref_label],
+                    ["-----", "------", "----------------", "----------------"],
+                    ]
+            byte_table_data.extend(byte_table_datitem)
 
-    # get rid of last "----" row
-    del byte_table_data[-1]
+    if not quiet:
+        # get rid of last "----" row
+        del byte_table_data[-1]
 
-    print(AsciiTable(byte_table_data).table, file=file)
+        print(AsciiTable(byte_table_data).table, file=file)
 
     field_info_payload['items'] = field_payload_items
 
@@ -642,7 +654,7 @@ def process_payload_type101(field_payload, field_ids=None,
 
 
 def process_payload_type102(field_payload, field_ids=None,
-        file=sys.stdout):
+        file=sys.stdout, quiet=False):
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
@@ -671,38 +683,32 @@ def process_payload_type102(field_payload, field_ids=None,
     field_info_payload['collection_label'] = ref_label
     field_info_payload['collection_ref'] = uint32s[u32start+2]
 
-    byte_table_data = [
-            ["Field\nBytes", "Type", "Description", "Value(s)"],]
+    if not quiet:
+        byte_table_data = [
+                ["Field\nBytes", "Type", "Description", "Value(s)"],
+                ["%d-%d"%(bstart, bstart+1), "uint16",
+                    "Unknown0",
+                    print_list_simple(uint16s[u16start:u16start+1], bits=16)],
+                ["%d-%d"%(bstart+2, bstart+3), "uint16",
+                    "Unknown1",
+                    print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
+                ["%d-%d"%(bstart+4, bstart+5), "uint16",
+                    "Unknown2\n  (1000)",
+                    print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
+                ["%d-%d"%(bstart+6, bstart+7), "uint16",
+                    "Items in Collection",
+                    print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
+                ["%d-%d"%(bstart+8, bstart+11), "uint32",
+                    "Collection Reference",
+                    print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
+                ["", "", "  (Reference to Type 101)", "(%s)"%ref_type101],
+                ["%d-%d"%(bstart+12, bstart+15), "uint32",
+                    "Label (Reference)",
+                    print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
+                ["", "", "", "(%s)"%ref_label],
+                ]
 
-    byte_table_datitem = [
-            ["%d-%d"%(bstart, bstart+1), "uint16",
-                "Unknown0",
-                print_list_simple(uint16s[u16start:u16start+1], bits=16)],
-            ["%d-%d"%(bstart+2, bstart+3), "uint16",
-                "Unknown1",
-                print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
-            ["%d-%d"%(bstart+4, bstart+5), "uint16",
-                "Unknown2\n  (1000)",
-                print_list_simple(uint16s[u16start+2:u16start+3], bits=16)],
-            ["%d-%d"%(bstart+6, bstart+7), "uint16",
-                "Items in Collection",
-                print_list_simple(uint16s[u16start+3:u16start+4], bits=16)],
-            ["%d-%d"%(bstart+8, bstart+11), "uint32",
-                "Collection Reference",
-                print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
-            ["", "", "  (Reference to Type 101)", "(%s)"%ref_type101],
-            ["%d-%d"%(bstart+12, bstart+15), "uint32",
-                "Label (Reference)",
-                print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
-            ["", "", "", "(%s)"%ref_label],
-            ["-----", "------", "----------------", "----------------"],
-            ]
-    byte_table_data.extend(byte_table_datitem)
-
-    # get rid of last "----" row
-    del byte_table_data[-1]
-
-    print(AsciiTable(byte_table_data).table, file=file)
+        print(AsciiTable(byte_table_data).table, file=file)
     
     return field_info_payload
 
