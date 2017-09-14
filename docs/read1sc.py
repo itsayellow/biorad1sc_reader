@@ -324,7 +324,20 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
                     end="", file=file)
         print("\n", file=file)
 
-    # report payload if not quiet
+    # compute payloads, report if not quiet
+    if field_type == 100:
+        field_info_payload = process_payload_type100(
+                field_payload, field_ids=field_ids, file=file, quiet=quiet)
+    elif field_type == 101:
+        field_info_payload = process_payload_type101(
+                field_payload, field_ids=field_ids, file=file, quiet=quiet)
+    elif field_type == 102:
+        field_info_payload = process_payload_type102(
+                field_payload, field_ids=field_ids, file=file, quiet=quiet)
+    else:
+        pass
+
+    # report the following payloads if not quiet
     if not quiet:
         print("Field Payload:", file=file)
 
@@ -335,17 +348,6 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
         elif field_type in BLOCK_PTR_TYPES:
             process_payload_blockptr(field_payload, field_type=field_type,
                     file=file)
-        elif field_type == 100:
-            field_info_payload = process_payload_type100(
-                    field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 101:
-            field_info_payload = process_payload_type101(
-                    field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 102:
-            field_info_payload = process_payload_type102(
-                    field_payload, field_ids=field_ids, file=file)
         elif field_type == 131:
             process_payload_type131(field_payload, field_ids=field_ids,
                     file=file)
@@ -445,6 +447,10 @@ def process_payload_type16(field_payload, file=sys.stdout):
 
 def process_payload_blockptr(field_payload, field_type,
         file=sys.stdout):
+
+    assert len(field_payload) == 12, \
+            "Field Type <Block Pointer>: payload size should be 12 bytes"
+
     # payload is 12 bytes long
     uint8s = unpack_uint8(field_payload)
     uint16s = unpack_uint16(field_payload, endian="<")
@@ -485,10 +491,11 @@ def summarize_ref(field_id, field_ids):
 
 
 def process_payload_type100(field_payload, field_ids=None,
-        file=sys.stdout):
+        file=sys.stdout, quiet=False):
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
+    field_payload_items = {}
 
     assert len(field_payload) % 36 == 0, \
             "Field Type 100: payload size should be multiple of 36 bytes"
@@ -525,52 +532,53 @@ def process_payload_type100(field_payload, field_ids=None,
         u32start = i*(ditem_len//4)
 
         ref_string = summarize_ref(uint32s[u32start+3], field_ids)
+        
+        if not quiet:
+            byte_table_datitem = [
+                    ["%d-%d"%(bstart, bstart+1), "uint16",
+                        "Region %d Data Type"%i,
+                        print_list_simple(uint16s[u16start:u16start+1], bits=16)],
+                    ["", "", "",
+                        "(" + data_types.get(uint16s[u16start:u16start+1][0],"") + ")"],
+                    ["%d-%d"%(bstart+2, bstart+3), "uint16",
+                        "Region %d Index"%i,
+                        print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
+                    ["%d-%d"%(bstart+4, bstart+7), "uint32",
+                        "Region %d Num Words"%i,
+                        print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
+                    ["%d-%d"%(bstart+8, bstart+11), "uint32",
+                        "Region %d Pointer Byte Offset"%i,
+                        print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
+                    ["%d-%d"%(bstart+12, bstart+15), "uint32",
+                        "Region %d Label (Reference)"%i,
+                        print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
+                    ["", "", "", "(%s)"%ref_string],
+                    ["%d-%d"%(bstart+16, bstart+19), "uint16",
+                        "Region %d Unknown1"%i,
+                        print_list_simple(uint16s[u16start+8:u16start+10], bits=16)],
+                    ["%d-%d"%(bstart+20, bstart+23), "uint32",
+                        "Region %d Word Size (bytes)"%i,
+                        print_list_simple(uint32s[u32start+5:u32start+6], bits=32)],
+                    ["%d-%d"%(bstart+24, bstart+25), "uint16",
+                        "Region %d Unknown2"%i,
+                        print_list_simple(uint16s[u16start+12:u16start+13], bits=16)],
+                    ["%d-%d"%(bstart+26, bstart+27), "uint16",
+                        "Region %d Field Type\n  that Ref. points to"%i,
+                        print_list_simple(uint16s[u16start+13:u16start+14], bits=16)],
+                    ["%d-%d"%(bstart+28, bstart+31), "uint16",
+                        "Region %d Unknown3"%i,
+                        print_list_simple(uint16s[u16start+14:u16start+16], bits=16)],
+                    ["%d-%d"%(bstart+32, bstart+35), "uint16",
+                        "Region %d Unknown4"%i,
+                        print_list_simple(uint16s[u16start+16:u16start+18], bits=16)],
+                    ["-----", "------", "------------------", "----------------"],
+                    ]
+            byte_table_data.extend(byte_table_datitem)
+    if not quiet:
+        # get rid of last "----" row
+        del byte_table_data[-1]
 
-        byte_table_datitem = [
-                ["%d-%d"%(bstart, bstart+1), "uint16",
-                    "Region %d Data Type"%i,
-                    print_list_simple(uint16s[u16start:u16start+1], bits=16)],
-                ["", "", "",
-                    "(" + data_types.get(uint16s[u16start:u16start+1][0],"") + ")"],
-                ["%d-%d"%(bstart+2, bstart+3), "uint16",
-                    "Region %d Index"%i,
-                    print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
-                ["%d-%d"%(bstart+4, bstart+7), "uint32",
-                    "Region %d Num Words"%i,
-                    print_list_simple(uint32s[u32start+1:u32start+2], bits=32)],
-                ["%d-%d"%(bstart+8, bstart+11), "uint32",
-                    "Region %d Pointer Byte Offset"%i,
-                    print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
-                ["%d-%d"%(bstart+12, bstart+15), "uint32",
-                    "Region %d Label (Reference)"%i,
-                    print_list_simple(uint32s[u32start+3:u32start+4], bits=32)],
-                ["", "", "", "(%s)"%ref_string],
-                ["%d-%d"%(bstart+16, bstart+19), "uint16",
-                    "Region %d Unknown1"%i,
-                    print_list_simple(uint16s[u16start+8:u16start+10], bits=16)],
-                ["%d-%d"%(bstart+20, bstart+23), "uint32",
-                    "Region %d Word Size (bytes)"%i,
-                    print_list_simple(uint32s[u32start+5:u32start+6], bits=32)],
-                ["%d-%d"%(bstart+24, bstart+25), "uint16",
-                    "Region %d Unknown2"%i,
-                    print_list_simple(uint16s[u16start+12:u16start+13], bits=16)],
-                ["%d-%d"%(bstart+26, bstart+27), "uint16",
-                    "Region %d Field Type\n  that Ref. points to"%i,
-                    print_list_simple(uint16s[u16start+13:u16start+14], bits=16)],
-                ["%d-%d"%(bstart+28, bstart+31), "uint16",
-                    "Region %d Unknown3"%i,
-                    print_list_simple(uint16s[u16start+14:u16start+16], bits=16)],
-                ["%d-%d"%(bstart+32, bstart+35), "uint16",
-                    "Region %d Unknown4"%i,
-                    print_list_simple(uint16s[u16start+16:u16start+18], bits=16)],
-                ["-----", "------", "------------------", "----------------"],
-                ]
-        byte_table_data.extend(byte_table_datitem)
-
-    # get rid of last "----" row
-    del byte_table_data[-1]
-
-    print(AsciiTable(byte_table_data).table, file=file)
+        print(AsciiTable(byte_table_data).table, file=file)
 
     return field_info_payload
 
@@ -599,8 +607,6 @@ def process_payload_type101(field_payload, field_ids=None,
             ["Field\nBytes", "Type", "Description", "Value(s)"],]
 
     for i in range(num_data_items):
-        field_payload_items[i] = {}
-
         bstart = i*ditem_len + 8
         u16start = i*(ditem_len//2)
         u32start = i*(ditem_len//4)
@@ -608,11 +614,16 @@ def process_payload_type101(field_payload, field_ids=None,
         ref_type100 = summarize_ref(uint32s[u32start+2], field_ids)
         ref_label = summarize_ref(uint32s[u32start+4], field_ids)
 
-        field_payload_items[i]['data_field_type'] = uint16s[u16start]
-        field_payload_items[i]['num_regions'] = uint16s[u16start+3]
-        field_payload_items[i]['data_key_ref'] = uint32s[u32start+2]
-        field_payload_items[i]['total_bytes'] = uint32s[u32start+3]
-        field_payload_items[i]['label'] = ref_label
+        data_field_type = uint16s[u16start]
+
+        assert field_payload_items.get(data_field_type,False) is False, \
+                "Field Type 101: multiple entries, same data field type"
+
+        field_payload_items[data_field_type] = {}
+        field_payload_items[data_field_type]['num_regions'] = uint16s[u16start+3]
+        field_payload_items[data_field_type]['data_key_ref'] = uint32s[u32start+2]
+        field_payload_items[data_field_type]['total_bytes'] = uint32s[u32start+3]
+        field_payload_items[data_field_type]['label'] = ref_label
 
         if not quiet:
             byte_table_datitem = [
@@ -1260,7 +1271,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
         field_start = byte_idx
         (byte_idx, field_info) = read_field(
                 in_bytes, byte_idx, field_ids=field_ids, file=out_fh,
-                report_strings=report_strings)
+                report_strings=report_strings, quiet=True)
         
         if field_info['type'] == 0:
             # we just saw an End Of Data Block Field
@@ -1270,7 +1281,26 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             byte_idx = end_idx + 8
 
         if field_info['type'] == 102:
+            print("-"*79, file=out_fh)
+            print("Data Collection", file=out_fh)
+            print(field_info['collection_label'], file=out_fh)
+            collection_ref = field_info['collection_ref']
             data_field_types = {}
+
+        if field_info['type'] == 101:
+            assert field_info['id'] == collection_ref, \
+                    "Collection Ref. from Type 102 doesn't match Type 101 ID"
+
+            data_field_types = field_info['items']
+
+        if field_info['type'] > 102:
+            if field_info['type'] in  data_field_types:
+                this_data_field = data_field_types[field_info['type']]
+                print("    " + "-"*20, file=out_fh)
+                print("    '%s'"%this_data_field['label'], file=out_fh)
+                print("    Field Type: %4d"%field_info['type'], file=out_fh)
+            else:
+                print("    Field Type: %4d NOT IN COLLECTION", file=out_fh)
 
         # break if we still aren't advancing
         if byte_idx == field_start:
@@ -1284,7 +1314,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
 
 
 def parse_file(filename, report_strings=True):
-    print(filename)
+    print(filename, file=sys.stderr)
 
     filename = os.path.realpath(filename)
     filedir = os.path.dirname(filename)
@@ -1303,6 +1333,7 @@ def parse_file(filename, report_strings=True):
 
     # PASS 1
     #   get all fields, field_id
+    print("    Pass 1: getting Field IDs, pointers", file=sys.stderr)
 
     # reset loop variables
     byte_idx = 160
@@ -1354,7 +1385,7 @@ def parse_file(filename, report_strings=True):
     is_referenced = {}
 
     # now that we know all data_ids, find all references
-    while byte_idx < len(in_bytes):
+    while byte_idx < data_start[10]:
         field_start = byte_idx
 
         (byte_idx, field_info) = read_field(
@@ -1375,21 +1406,21 @@ def parse_file(filename, report_strings=True):
         if byte_idx == field_start:
             break
 
-        if byte_idx > data_start[10]:
-            break
-
     # PASS 2
     #   report on whole file to dump.txt
+    print("    Pass 2: Reporting entire file to dump.txt", file=sys.stderr)
     report_whole_file(in_bytes, field_ids, data_start, data_len,
             filedir, filename, report_strings=report_strings)
 
     # PASS 3
     #   report data blocks in separate files
+    print("    Pass 3: Reporting data blocks to separate files", file=sys.stderr)
     report_datablocks(in_bytes, data_start, data_len, field_ids,
             filedir, filename, report_strings=report_strings)
 
     # PASS 4
     #   report on hierarchy
+    print("    Pass 4: Reporting hierarchical data to hierarchy2.txt", file=sys.stderr)
     report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             is_referenced, filedir, filename, report_strings=report_strings)
 
