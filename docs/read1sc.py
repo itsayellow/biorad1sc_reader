@@ -5,6 +5,7 @@
 import os
 import os.path
 import sys
+import time
 import argparse
 import struct
 from terminaltables import AsciiTable
@@ -45,7 +46,7 @@ DATA_TYPES = {
         4:"uint16",
         5:"u?int32",
         6:"u?int32",
-        7:"u?int64",
+        7:"uint64",
         9:"uint32",
         10:"8-byte - float?",
         15:"uint32 Reference",
@@ -53,8 +54,8 @@ DATA_TYPES = {
         131:"12-byte??",
         1001:"8- or 24-byte??",
         1002:"24-byte??",
-        1003:"8-byte??",
-        1004:"8- or 16-byte??",
+        1003:"8-byte (x,y)??",
+        1004:"8- or 16-byte (x1,y1,x2,y2)??",
         1005:"64-byte??",
         1006:"640-byte??",
         1010:"144-byte??",
@@ -193,6 +194,12 @@ def unpack_uint32(byte_stream, endian="<"):
     num_uint32 = len(byte_stream)//4
     out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
     return out_uint32s
+
+
+def unpack_uint64(byte_stream, endian="<"):
+    num_uint64 = len(byte_stream)//8
+    out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
+    return out_uint64s
 
 
 def debug_generic(byte_stream, byte_start, note_str, format_str,
@@ -584,7 +591,7 @@ def process_payload_type100(field_payload, field_ids=None,
                         "Region %d Unknown2"%i,
                         print_list_simple(uint16s[u16start+12:u16start+13], bits=16)],
                     ["%d-%d"%(bstart+26, bstart+27), "uint16",
-                        "Region %d Field Type\n  that Ref. points to"%i,
+                        "Region %d Field Type (non-16)\n  that Ref. points to"%i,
                         print_list_simple(uint16s[u16start+13:u16start+14], bits=16)],
                     ["%d-%d"%(bstart+28, bstart+31), "uint16",
                         "Region %d Unknown3"%i,
@@ -1356,7 +1363,17 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
                                 file=out_fh)
                     elif region['data_type'] in [5,6,9]:
                         # u?int32
-                        print(" "*8 + "Data       : " + repr(unpack_uint32(region_data, endian="<")),
+                        if region['label'].endswith("time"):
+                            this_time = time.gmtime(unpack_uint32(region_data, endian="<")[0])
+                            print(" "*8 + "Data       : ",end="", file=out_fh)
+                            print(repr(this_time), file=out_fh)
+                            
+                        else:
+                            print(" "*8 + "Data       : " + repr(unpack_uint32(region_data, endian="<")),
+                                file=out_fh)
+                    elif region['data_type'] in [7,]:
+                        # u?int32
+                        print(" "*8 + "Data       : " + repr(unpack_uint64(region_data, endian="<")),
                                 file=out_fh)
                     elif region['data_type'] in [15,17]:
                         # uint32 Reference
