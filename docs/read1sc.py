@@ -46,7 +46,7 @@ DATA_TYPES = {
         5:"u?int32",
         6:"u?int32",
         7:"u?int64",
-        9:"u?int64",
+        9:"u?int32",
         10:"8-byte - float?",
         15:"uint32 Reference",
         17:"uint32 Reference",
@@ -1326,14 +1326,20 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
                 print(" "*4 + "Field Type: %4d"%field_info['type'], file=out_fh)
                 for dkey in data_key:
                     region = data_key[dkey]
+                    data_reg_start = region['byte_offset']
+                    data_reg_end = region['byte_offset'] + \
+                            region['word_size'] * region['num_words']
+                    data = field_data[data_reg_start:data_reg_end]
                     print(" "*8 + "-"*20, file=out_fh)
                     print(" "*8 + "'%s'"%region['label'], file=out_fh )
-                    print(" "*8 + "Data Type  : %d"%region['data_type'] + " (%s)"%DATA_TYPES.get(region['data_type'],""),
+                    print(" "*8 + "Data Type  : %d"%region['data_type'] + \
+                            " (%s)"%DATA_TYPES.get(region['data_type'],""),
                             file=out_fh)
                     print(" "*8 + "Index      : %d"%region['index'], file=out_fh)
                     print(" "*8 + "Num. Words : %d"%region['num_words'], file=out_fh)
                     print(" "*8 + "Byte Offset: %d"%region['byte_offset'], file=out_fh)
                     print(" "*8 + "Word Size  : %d"%region['word_size'], file=out_fh)
+                    print(" "*8 + repr(data), file=out_fh)
             else:
                 print("    Field Type: %4d NOT IN COLLECTION", file=out_fh)
 
@@ -1409,7 +1415,7 @@ def get_all_field_info(in_bytes, field_ids):
     update_field_ids(in_bytes, field_ids, data_start, data_len)
     is_referenced = update_field_ids(in_bytes, field_ids, data_start, data_len)
 
-    return(field_ids, data_start, data_len, is_referenced)
+    return (field_ids, data_start, data_len, is_referenced)
 
 
 def parse_file(filename, report_strings=True):
