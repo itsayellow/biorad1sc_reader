@@ -39,14 +39,14 @@ BLOCK_PTR_TYPES = {142:0, 143:1, 132:2, 133:3, 141:4,
         140:5, 126:6, 127:7, 128:8, 129:9, 130:10, }
 
 DATA_TYPES = {
-        1:"byte",
-        2:"ASCII",
+        1:"u?byte",
+        2:"u?byte/ASCII",
         3:"u?int16",
-        4:"u?int16",
+        4:"uint16",
         5:"u?int32",
         6:"u?int32",
         7:"u?int64",
-        9:"u?int32",
+        9:"uint32",
         10:"8-byte - float?",
         15:"uint32 Reference",
         17:"uint32 Reference",
@@ -1318,7 +1318,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
 
         if field_info['type'] > 102:
             if field_info['type'] in  data_field_types:
-                field_data = in_bytes[field_start:byte_idx]
+                field_data = in_bytes[field_start+8:byte_idx]
                 this_data_field = data_field_types[field_info['type']]
                 data_key = field_ids[this_data_field['data_key_ref']]['regions']
                 print(" "*4 + "-"*20, file=out_fh)
@@ -1329,7 +1329,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
                     data_reg_start = region['byte_offset']
                     data_reg_end = region['byte_offset'] + \
                             region['word_size'] * region['num_words']
-                    data = field_data[data_reg_start:data_reg_end]
+                    region_data = field_data[data_reg_start:data_reg_end]
                     print(" "*8 + "-"*20, file=out_fh)
                     print(" "*8 + "'%s'"%region['label'], file=out_fh )
                     print(" "*8 + "Data Type  : %d"%region['data_type'] + \
@@ -1339,7 +1339,37 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
                     print(" "*8 + "Num. Words : %d"%region['num_words'], file=out_fh)
                     print(" "*8 + "Byte Offset: %d"%region['byte_offset'], file=out_fh)
                     print(" "*8 + "Word Size  : %d"%region['word_size'], file=out_fh)
-                    print(" "*8 + repr(data), file=out_fh)
+                    if region['data_type'] in [1,2]:
+                        # byte / ASCII
+                        if is_valid_string(region_data):
+                            this_str = region_data.rstrip(b"\x00").decode('utf-8','ignore')
+                            print(" "*8 + "Data       : '" + this_str + "'",
+                                    file=out_fh)
+                        else:
+                            this_bytes = unpack_uint8(region_data)
+                            print(" "*8 + "Data       : " + repr(),
+                                    file=out_fh)
+                    elif region['data_type'] in [3,4]:
+                        # u?int16
+                        print(" "*8 + "Data       : " + repr(unpack_uint16(region_data, endian="<")),
+                                file=out_fh)
+                    elif region['data_type'] in [5,6,9]:
+                        # u?int32
+                        print(" "*8 + "Data       : " + repr(unpack_uint32(region_data, endian="<")),
+                                file=out_fh)
+                    elif region['data_type'] in [15,17]:
+                        # uint32 Reference
+                        this_ref = unpack_uint32(region_data, endian="<")[0]
+                        if this_ref != 0 and field_ids[this_ref]['type'] == 16:
+                            region_str = field_ids[this_ref]['payload'][:-1].decode("utf-8", "ignore")
+                            print(" "*8 + "Data       : "+region_str,
+                                    file=out_fh)
+                        else:
+                            print(" "*8 + "Data       : "+repr(this_ref),
+                                    file=out_fh)
+                    else:
+                        print(" "*8 + repr(region_data),
+                                file=out_fh)
             else:
                 print("    Field Type: %4d NOT IN COLLECTION", file=out_fh)
 
