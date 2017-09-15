@@ -552,7 +552,7 @@ def process_payload_type100(field_payload, field_ids=None,
         field_payload_regions[i]['num_words'] = uint32s[u32start+1]
         field_payload_regions[i]['byte_offset'] = uint32s[u32start+2]
         field_payload_regions[i]['word_size'] = uint32s[u32start+5]
-        field_payload_regions[i]['ref_field_type'] = uint16s[u32start+13]
+        field_payload_regions[i]['ref_field_type'] = uint16s[u16start+13]
 
         if not quiet:
             byte_table_datitem = [
@@ -1339,6 +1339,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
                     print(" "*8 + "Num. Words : %d"%region['num_words'], file=out_fh)
                     print(" "*8 + "Byte Offset: %d"%region['byte_offset'], file=out_fh)
                     print(" "*8 + "Word Size  : %d"%region['word_size'], file=out_fh)
+                    print(" "*8 + "Ref. Type  : %d"%region['ref_field_type'], file=out_fh)
                     if region['data_type'] in [1,2]:
                         # byte / ASCII
                         if is_valid_string(region_data):
