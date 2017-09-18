@@ -331,6 +331,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
         field_ids = {}
     field_info = {}
     field_info_payload = {}
+    field_start = byte_idx
 
     # quiet=True if Field Type is String and we're not reporting them
     field_type_pre = unpack_uint16(in_bytes[byte_idx:byte_idx+2], endian="<")[0]
@@ -424,6 +425,8 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_generic(field_payload, note_str, file=file)
 
     field_info['type'] = field_type
+    field_info['start'] = field_start
+    field_info['len'] = field_len
     field_info['id'] = field_id
     field_info['payload'] = field_payload
     field_info['references'] = references
@@ -1284,7 +1287,104 @@ def report_hierarchy(field_ids, is_referenced, filedir):
 
     out_fh.close()
 
- 
+
+def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
+        file, indent):
+    tab = " "*4*indent
+    field_start = field_info['start']
+    field_len = field_info['len']
+    if field_info['type'] in  data_field_types:
+        field_data = in_bytes[field_start + 8:field_start + field_len]
+        this_data_field = data_field_types[field_info['type']]
+        data_key = field_ids[this_data_field['data_key_ref']]['regions']
+        print(tab + "-"*20, file=file)
+        print(tab + "'%s'"%this_data_field['label'], file=file)
+        print(tab + "Field Type: %4d"%field_info['type'], file=file)
+        for dkey in data_key:
+            tab = " "*4*(indent + 1)
+            region = data_key[dkey]
+            data_reg_start = region['byte_offset']
+            data_reg_end = region['byte_offset'] + \
+                    region['word_size'] * region['num_words']
+            region_data = field_data[data_reg_start:data_reg_end]
+            print(tab + "-"*20, file=file)
+            print(tab + "'%s'"%region['label'], file=file)
+            print(tab + "Data Type  : %d"%region['data_type'] + \
+                    " (%s)"%DATA_TYPES.get(region['data_type'],""),
+                    file=file)
+            print(tab + "Index      : %d"%region['index'],
+                    file=file)
+            print(tab + "Num. Words : %d"%region['num_words'],
+                    file=file)
+            print(tab + "Byte Offset: %d"%region['byte_offset'],
+                    file=file)
+            print(tab + "Word Size  : %d"%region['word_size'],
+                    file=file)
+            print(tab + "Ref. Type  : %d"%region['ref_field_type'],
+                    file=file)
+            if region['data_type'] in [1,2]:
+                # byte / ASCII
+                if is_valid_string(region_data):
+                    this_str = region_data.rstrip(b"\x00").decode('utf-8','ignore')
+                    print(tab + "Data       : '" + this_str + "'",
+                            file=file)
+                else:
+                    this_bytes = unpack_uint8(region_data)
+                    print(tab + "Data       : " + repr(),
+                            file=file)
+            elif region['data_type'] in [3,4]:
+                # u?int16
+                print(tab + "Data       : " + \
+                        repr(unpack_uint16(region_data, endian="<")),
+                        file=file)
+            elif region['data_type'] in [5,6,9]:
+                # u?int32
+                if region['label'].endswith("time"):
+                    this_time = time.asctime(
+                            time.gmtime(
+                                unpack_uint32(region_data, endian="<")[0]
+                                )
+                            )
+                    print(tab + "Data       : ",end="", file=file)
+                    print(this_time, file=file)
+                    
+                else:
+                    print(tab + "Data       : " + \
+                            repr(unpack_uint32(region_data, endian="<")),
+                        file=file)
+            elif region['data_type'] in [7,]:
+                # u?int32
+                print(tab + "Data       : " + \
+                        repr(unpack_uint64(region_data, endian="<")),
+                        file=file)
+            elif region['data_type'] in [15,17]:
+                # uint32 Reference
+                this_ref = unpack_uint32(region_data, endian="<")[0]
+                if this_ref != 0:
+                    if field_ids[this_ref]['type'] == 16:
+                        region_str = field_ids[this_ref]['payload'][:-1]
+                        region_str = region_str.decode("utf-8", "ignore")
+                        print(tab + "Data       : "+region_str, file=file)
+                    else:
+                        field_info = field_ids[this_ref]
+                        report_field_type_hier2(
+                                in_bytes,
+                                field_info,
+                                field_ids,
+                                data_field_types,
+                                file=file,
+                                indent=indent+2
+                                )
+                else:
+                    print(tab + "Data       : "+repr(this_ref),
+                            file=file)
+            else:
+                print(tab + repr(region_data),
+                        file=file)
+    else:
+        print("    Field Type: %4d NOT IN COLLECTION", file=file)
+
+
 def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
         is_referenced, filedir, filename, report_strings=True):
     try:
@@ -1324,72 +1424,14 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             data_field_types = field_info['items']
 
         if field_info['type'] > 102:
-            if field_info['type'] in  data_field_types:
-                field_data = in_bytes[field_start+8:byte_idx]
-                this_data_field = data_field_types[field_info['type']]
-                data_key = field_ids[this_data_field['data_key_ref']]['regions']
-                print(" "*4 + "-"*20, file=out_fh)
-                print(" "*4 + "'%s'"%this_data_field['label'], file=out_fh)
-                print(" "*4 + "Field Type: %4d"%field_info['type'], file=out_fh)
-                for dkey in data_key:
-                    region = data_key[dkey]
-                    data_reg_start = region['byte_offset']
-                    data_reg_end = region['byte_offset'] + \
-                            region['word_size'] * region['num_words']
-                    region_data = field_data[data_reg_start:data_reg_end]
-                    print(" "*8 + "-"*20, file=out_fh)
-                    print(" "*8 + "'%s'"%region['label'], file=out_fh )
-                    print(" "*8 + "Data Type  : %d"%region['data_type'] + \
-                            " (%s)"%DATA_TYPES.get(region['data_type'],""),
-                            file=out_fh)
-                    print(" "*8 + "Index      : %d"%region['index'], file=out_fh)
-                    print(" "*8 + "Num. Words : %d"%region['num_words'], file=out_fh)
-                    print(" "*8 + "Byte Offset: %d"%region['byte_offset'], file=out_fh)
-                    print(" "*8 + "Word Size  : %d"%region['word_size'], file=out_fh)
-                    print(" "*8 + "Ref. Type  : %d"%region['ref_field_type'], file=out_fh)
-                    if region['data_type'] in [1,2]:
-                        # byte / ASCII
-                        if is_valid_string(region_data):
-                            this_str = region_data.rstrip(b"\x00").decode('utf-8','ignore')
-                            print(" "*8 + "Data       : '" + this_str + "'",
-                                    file=out_fh)
-                        else:
-                            this_bytes = unpack_uint8(region_data)
-                            print(" "*8 + "Data       : " + repr(),
-                                    file=out_fh)
-                    elif region['data_type'] in [3,4]:
-                        # u?int16
-                        print(" "*8 + "Data       : " + repr(unpack_uint16(region_data, endian="<")),
-                                file=out_fh)
-                    elif region['data_type'] in [5,6,9]:
-                        # u?int32
-                        if region['label'].endswith("time"):
-                            this_time = time.gmtime(unpack_uint32(region_data, endian="<")[0])
-                            print(" "*8 + "Data       : ",end="", file=out_fh)
-                            print(repr(this_time), file=out_fh)
-                            
-                        else:
-                            print(" "*8 + "Data       : " + repr(unpack_uint32(region_data, endian="<")),
-                                file=out_fh)
-                    elif region['data_type'] in [7,]:
-                        # u?int32
-                        print(" "*8 + "Data       : " + repr(unpack_uint64(region_data, endian="<")),
-                                file=out_fh)
-                    elif region['data_type'] in [15,17]:
-                        # uint32 Reference
-                        this_ref = unpack_uint32(region_data, endian="<")[0]
-                        if this_ref != 0 and field_ids[this_ref]['type'] == 16:
-                            region_str = field_ids[this_ref]['payload'][:-1].decode("utf-8", "ignore")
-                            print(" "*8 + "Data       : "+region_str,
-                                    file=out_fh)
-                        else:
-                            print(" "*8 + "Data       : "+repr(this_ref),
-                                    file=out_fh)
-                    else:
-                        print(" "*8 + repr(region_data),
-                                file=out_fh)
-            else:
-                print("    Field Type: %4d NOT IN COLLECTION", file=out_fh)
+            report_field_type_hier2(
+                    in_bytes,
+                    field_info,
+                    field_ids,
+                    data_field_types,
+                    file=out_fh,
+                    indent=1
+                    )
 
         # break if we still aren't advancing
         if byte_idx == field_start:
