@@ -1322,6 +1322,10 @@ def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
                     file=file)
             print(tab + "Ref. Type  : %d"%region['ref_field_type'],
                     file=file)
+            raw_data_str = print_list_simple(region_data, bits=8, hexfmt=False)
+            print(tab + "Data (raw) : " + raw_data_str, file=file)
+            raw_data_str = print_list_simple(region_data, bits=8, hexfmt=True)
+            print(tab + "Data (raw) : " + raw_data_str, file=file)
             if region['data_type'] in [1,2]:
                 # byte / ASCII
                 if is_valid_string(region_data):
@@ -1379,7 +1383,7 @@ def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
                     print(tab + "Data       : "+repr(this_ref),
                             file=file)
             else:
-                print(tab + repr(region_data),
+                print(tab + "Data       : "+repr(region_data),
                         file=file)
     else:
         print("    Field Type: %4d NOT IN COLLECTION", file=file)
@@ -1388,7 +1392,7 @@ def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
 def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
         is_referenced, filedir, filename, report_strings=True):
     try:
-        out_fh = open(os.path.join(filedir, "hierarchy2.txt"), "w")
+        out_fh = open(os.path.join(filedir, "hierarchy.txt"), "w")
     except:
         print("Error opening hierarchy2.txt")
 
