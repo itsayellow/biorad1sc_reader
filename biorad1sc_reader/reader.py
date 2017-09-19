@@ -57,7 +57,7 @@ def update_item_datakey(this_collection,field_info):
     data_id = field_info['id']
     for item in this_collection['items']:
         if this_collection['items'][item]['data_key_ref'] == data_id:
-            this_collection['items'][item]['data_key'] = field_info
+            this_collection['items'][item]['data_key'] = field_info['regions']
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
