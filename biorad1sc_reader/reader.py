@@ -443,12 +443,30 @@ class Reader():
         return field_info_payload
 
 
+    def _process_payload_data_container(self,
+            field_info, data_types, field_ids):
+        data_dict = {}
+        this_data_field = data_types[field_info['type']]
+        data_key = field_ids[this_data_field['data_key_ref']]['regions']
+        payload = field_info['payload']
+
+        for dkey in data_key:
+            region = data_key[dkey]
+            data_reg_start = region['byte_offset']
+            data_reg_end = region['byte_offset'] + \
+                    region['word_size'] * region['num_words']
+            region_data = payload[data_reg_start:data_reg_end]
+            data_dict[region['label']] = region_data
+
+        return data_dict
+
     def get_img_metadata2(self):
         """
         Fetch All Metadata in File
         """
         field_ids = {}
         fields102 = {}
+        collections = {}
 
         # start at first field of Data Block 0, get all ids
         byte_idx = self.data_start[0] + 8
@@ -475,39 +493,46 @@ class Reader():
                 (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
+            elif field_info['type'] == 2:
+                # TODO: is type 2 ever useful?
+                pass
             elif field_info['type'] == 16:
                 pass
             elif field_info['type'] == 102:
-                this_collection = {}
+                data_types = {}
+                data_key = {}
                 field_payload_info = self._process_payload_type102(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
-                this_collection = field_info
-                this_collection.pop('payload')
+                collections[field_info['collection_label']] = {}
+                this_coll = collections[field_info['collection_label']]
             elif field_info['type'] == 101:
                 field_payload_info = self._process_payload_type101(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
-                this_collection.update(field_info)
-                this_collection.pop('payload')
-                this_collection.pop('type')
-                this_collection.pop('id')
-                this_collection.pop('start')
-                this_collection.pop('len')
+                data_types = field_info['items']
+                #for data_type in data_types:
+                #    dkey_ref = data_types[data_type]['data_key_ref']
+                #    data_key[dkey_ref] = data_type
             elif field_info['type'] == 100:
                 field_payload_info = self._process_payload_type100(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
-                update_item_datakey(this_collection,field_info)
-                print(this_collection)
-            elif field_info['type'] in this_collection['items']:
-                pass
+                field_ids[field_info['id']] = field_info
+                #data_type = data_key[field_info['id']]
+                #data_types[data_type]['regions'] = field_info['regions']
+            elif field_info['type'] in data_types:
+                data_dict = self._process_payload_data_container(
+                        field_info,
+                        data_types,
+                        field_ids
+                        )
+                this_coll[data_types[field_info['type']]['label']] = data_dict
             else:
                 print(field_info['type'])
-                #raise Exception("Error processing collection")
+                raise Exception("Error processing collection")
             
-
-        return field_ids
+        return collections
         
 
     def _process_field_header(self, byte_idx):
