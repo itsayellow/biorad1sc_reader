@@ -325,7 +325,7 @@ def print_field_header(in_bytes, byte_idx, file=sys.stdout, quiet=False):
     return (field_type, field_len, field_id, header_uint16s, header_uint32s)
 
 
-def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
+def read_field(in_bytes, byte_idx, field_ids=None,
         file=sys.stdout, quiet=False, report_strings=True):
     if field_ids is None:
         field_ids = {}
@@ -422,7 +422,7 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
         else:
-            process_payload_generic(field_payload, note_str, file=file)
+            process_payload_generic(field_payload, file=file)
 
     field_info['type'] = field_type
     field_info['start'] = field_start
@@ -436,11 +436,10 @@ def read_field(in_bytes, byte_idx, note_str="??", field_ids=None,
     return (byte_idx+field_len, field_info)
 
 
-def process_payload_generic(field_payload, note_str,
-        file=sys.stdout, quiet=False):
+def process_payload_generic(field_payload, file=sys.stdout, quiet=False):
     # string also shows bytes in hex
     debug_string(
-            field_payload, 0, note_str, multiline=True,
+            field_payload, 0, "", multiline=True,
             file=file, quiet=quiet)
     if len(field_payload)%2 == 0:
         debug_ushorts(
@@ -1418,6 +1417,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             print("-"*79, file=out_fh)
             print("Data Collection", file=out_fh)
             print("'%s'"%field_info['collection_label'], file=out_fh)
+            print("Field Type: %d"%field_info['type'], file=out_fh)
             collection_ref = field_info['collection_ref']
             data_field_types = {}
 
@@ -1462,7 +1462,6 @@ def update_field_ids(in_bytes, field_ids, data_start, data_len):
 
         (byte_idx, field_info) = read_field(
                 in_bytes, byte_idx,
-                note_str="",
                 quiet=True,
                 field_ids=field_ids
                 )

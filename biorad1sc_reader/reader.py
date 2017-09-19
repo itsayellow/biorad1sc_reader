@@ -2,8 +2,10 @@
 
 # see LARGE amount of file format notes at end of this file
 
+import sys
 import os.path
 import struct
+from biorad1sc_reader.errors import BioRadInvalidFileError
 #import tictoc
 
 from PIL import Image
@@ -20,6 +22,42 @@ if HAS_NUMPY:
     print("YES Numpy")
 else:
     print("No Numpy")
+
+
+def unpack_string(byte_stream):
+    out_string = byte_stream.decode("utf-8", "replace")
+    return out_string
+
+
+def unpack_uint8(byte_stream):
+    num_uint8 = len(byte_stream)
+    out_uint8s = struct.unpack("B"*num_uint8, byte_stream)
+    return out_uint8s
+
+
+def unpack_uint16(byte_stream, endian="<"):
+    num_uint16 = len(byte_stream)//2
+    out_uint16s = struct.unpack(endian+"H"*num_uint16, byte_stream)
+    return out_uint16s
+
+
+def unpack_uint32(byte_stream, endian="<"):
+    num_uint32 = len(byte_stream)//4
+    out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
+    return out_uint32s
+
+
+def unpack_uint64(byte_stream, endian="<"):
+    num_uint64 = len(byte_stream)//8
+    out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
+    return out_uint64s
+
+
+def update_item_datakey(this_collection,field_info):
+    data_id = field_info['id']
+    for item in this_collection['items']:
+        if this_collection['items'][item]['data_key_ref'] == data_id:
+            this_collection['items'][item]['data_key'] = field_info
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
@@ -81,14 +119,13 @@ class Reader():
         self.filename = os.path.realpath(in_filename)
         self.filedir = os.path.dirname(self.filename)
 
-        # TODO: verify file magic number
-
         with open(self.filename, 'rb') as in_fh:
             self.in_bytes = in_fh.read()
 
-        # get pointers to start, len of all major data blocks in file
+        # test magic number of file, get pointers to start, len of all major
+        #   data blocks in file
         #   from info at top of file
-        self._parse_data_blocks()
+        status = self._parse_file_header()
 
 
     def _get_img_size(self):
@@ -117,7 +154,7 @@ class Reader():
 
 
             if HAS_NUMPY:
-                # unsigned shorts (2-bytes)
+                # unsigned uint16s (2-bytes)
                 img_data = np.frombuffer(
                         self.in_bytes[img_start:img_end],
                         np.dtype("uint16").newbyteorder(self.endian)
@@ -137,7 +174,7 @@ class Reader():
                 self.img_data = img_data[img_data_idx]
                 
             else:
-                # little-endian unsigned shorts (2-bytes)
+                # little-endian unsigned uint16s (2-bytes)
                 img_data = list(
                         struct.unpack(
                             "%s%dH"%(self.endian, (img_end-img_start)/2),
@@ -258,11 +295,17 @@ class Reader():
         # init metadata dict
         metadata = {}
 
-        # first 4 ushorts of data block are info about block
+        # first 4 uint16s of data block are info about block
         byte_idx = self.data_start[7] + 8
 
         while byte_idx < (self.data_start[7] + self.data_len[7]):
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
+            if field_info['type'] == 0:
+                # we just saw an End Of Data Block Field
+                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                # skip to beginning of next data block
+                byte_idx = end_idx + 8
+
             if field_info['type'] == 16:
                 info_str = field_info['payload'][:-1].decode("utf-8")
                 if ': ' in info_str:
@@ -282,109 +325,258 @@ class Reader():
         return metadata
 
 
-    def _get_generic(self, byte_stream, byte_start, format_str):
-        # TODO: find endian (now we just assume little-endian)
+    def _get_next_data_block_end(self, byte_idx):
+        #block_num = 0
+        #end_idx = data_start[0] + data_len[0]
 
-        num_words = len(byte_stream) / struct.calcsize(format_str)
-        out_words = list(
-                struct.unpack(
-                    "%s%d%s"%(self.endian, num_words, format_str),
-                    byte_stream)
-                )
-
-        byte_idx = byte_start + len(byte_stream)
-        return (out_words, byte_idx)
+        for i in range(11):
+            if byte_idx < self.data_start[i] + self.data_len[i]:
+                block_num = i
+                end_idx = self.data_start[i] + self.data_len[i]
+                break
+        return (block_num, end_idx)
 
 
-    def _get_uints(self, byte_stream, byte_start):
-        (out_uints, byte_idx) = self._get_generic(byte_stream, byte_start, "I")
-        return (out_uints, byte_idx)
+    def _process_payload_type102(self, field_payload, field_ids=None):
+        if field_ids is None:
+            field_ids = {}
+        field_info_payload = {}
+
+        assert len(field_payload) == 16, \
+                "Field Type 102 should have length of 20"
+
+        uint16s = unpack_uint16(field_payload, endian="<")
+        uint32s = unpack_uint32(field_payload, endian="<")
+        ref_label = uint32s[3]
+        collection_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
+        collection_label = collection_label.decode('utf-8', 'ignore')
+
+        # number of items in this collection
+        field_info_payload['collection_num_items'] = uint16s[3]
+        # label for this collection
+        field_info_payload['collection_label'] = collection_label
+        # reference to next field type 101
+        field_info_payload['collection_ref'] = uint32s[2]
+
+        return field_info_payload
+
+    def _process_payload_type101(self, field_payload, field_ids=None):
+        if field_ids is None:
+            field_ids = {}
+        field_info_payload = {}
+        field_payload_items = {}
+
+        assert len(field_payload) % 20 == 0, \
+                "Field Type 101: payload size should be multiple of 20 bytes"
+
+        # every 20 bytes is a new Data Item
+        # each uint at bytes 8-11 + 20*N is a reference
+        # each uint at bytes 16-19 + 20*N is a reference
+        ditem_len = 20
+
+        num_data_items = len(field_payload)//ditem_len
+
+        uint16s = unpack_uint16(field_payload, endian="<")
+        uint32s = unpack_uint32(field_payload, endian="<")
+
+        for i in range(num_data_items):
+            u16start = i*(ditem_len//2)
+            u32start = i*(ditem_len//4)
+
+            ref_label = uint32s[u32start+4]
+            item_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
+            item_label = item_label.decode('utf-8', 'ignore')
+
+            data_field_type = uint16s[u16start]
+
+            assert field_payload_items.get(data_field_type,False) is False, \
+                    "Field Type 101: multiple entries, same data field type"
+
+            field_payload_items[data_field_type] = {}
+            field_payload_items[data_field_type]['num_regions'] = uint16s[u16start+3]
+            field_payload_items[data_field_type]['data_key_ref'] = uint32s[u32start+2]
+            field_payload_items[data_field_type]['total_bytes'] = uint32s[u32start+3]
+            field_payload_items[data_field_type]['label'] = item_label
+
+        field_info_payload['items'] = field_payload_items
+
+        return field_info_payload
 
 
-    def _get_ushorts(self, byte_stream, byte_start):
-        (out_shorts, byte_idx) = self._get_generic(byte_stream, byte_start, "H")
-        return (out_shorts, byte_idx)
+    def _process_payload_type100(self, field_payload, field_ids=None):
+        if field_ids is None:
+            field_ids = {}
+        field_info_payload = {}
+        field_payload_regions = {}
 
+        assert len(field_payload) % 36 == 0, \
+                "Field Type 100: payload size should be multiple of 36 bytes"
+
+        # every 36 bytes is a new Data Item
+        # each uint at bytes 12-15 + 36*N is a reference to Field Type 16
+        ditem_len = 36
+
+        num_data_items = len(field_payload)//ditem_len
+
+        uint16s = unpack_uint16(field_payload, endian="<")
+        uint32s = unpack_uint32(field_payload, endian="<")
+
+        for i in range(num_data_items):
+            u16start = i*(ditem_len//2)
+            u32start = i*(ditem_len//4)
+
+            ref_label = uint32s[u32start+3]
+            region_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
+            region_label = region_label.decode('utf-8', 'ignore')
+            
+            field_payload_regions[i] = {}
+            field_payload_regions[i]['data_type'] = uint16s[u16start]
+            field_payload_regions[i]['label'] = region_label
+            field_payload_regions[i]['index'] = uint16s[u16start+1]
+            field_payload_regions[i]['num_words'] = uint32s[u32start+1]
+            field_payload_regions[i]['byte_offset'] = uint32s[u32start+2]
+            field_payload_regions[i]['word_size'] = uint32s[u32start+5]
+            field_payload_regions[i]['ref_field_type'] = uint16s[u16start+13]
+
+        field_info_payload['regions'] = field_payload_regions
+
+        return field_info_payload
+
+
+    def get_img_metadata2(self):
+        """
+        Fetch All Metadata in File
+        """
+        field_ids = {}
+        fields102 = {}
+
+        # start at first field of Data Block 0, get all ids
+        byte_idx = self.data_start[0] + 8
+        while byte_idx < self.data_start[10]:
+            (byte_idx, field_info) = self._read_field_lite(byte_idx)
+            field_ids[field_info['id']] = field_info
+
+            if field_info['type'] == 0:
+                # we just saw an End Of Data Block Field
+                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                # skip to beginning of next data block
+                byte_idx = end_idx + 8
+
+        # start at first field of Data Block 0, process hierarchical
+        #   metadata
+        byte_idx = self.data_start[0] + 8
+        while byte_idx < self.data_start[10]:
+            (byte_idx, field_info) = self._read_field_lite(byte_idx)
+            # TODO: remove payload before saving to field_ids?
+            field_ids[field_info['id']] = field_info
+
+            if field_info['type'] == 0:
+                # we just saw an End Of Data Block Field
+                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                # skip to beginning of next data block
+                byte_idx = end_idx + 8
+            elif field_info['type'] == 16:
+                pass
+            elif field_info['type'] == 102:
+                this_collection = {}
+                field_payload_info = self._process_payload_type102(
+                        field_info['payload'], field_ids=field_ids)
+                field_info.update(field_payload_info)
+                this_collection = field_info
+                this_collection.pop('payload')
+            elif field_info['type'] == 101:
+                field_payload_info = self._process_payload_type101(
+                        field_info['payload'], field_ids=field_ids)
+                field_info.update(field_payload_info)
+                this_collection.update(field_info)
+                this_collection.pop('payload')
+                this_collection.pop('type')
+                this_collection.pop('id')
+                this_collection.pop('start')
+                this_collection.pop('len')
+            elif field_info['type'] == 100:
+                field_payload_info = self._process_payload_type100(
+                        field_info['payload'], field_ids=field_ids)
+                field_info.update(field_payload_info)
+                update_item_datakey(this_collection,field_info)
+                print(this_collection)
+            elif field_info['type'] in this_collection['items']:
+                pass
+            else:
+                print(field_info['type'])
+                #raise Exception("Error processing collection")
+            
+
+        return field_ids
+        
 
     def _process_field_header(self, byte_idx):
         # read header
-        (header_ushorts, _) = self._get_ushorts(
-                self.in_bytes[byte_idx:byte_idx+8], byte_idx)
-        (header_uints, _) = self._get_uints(
-                self.in_bytes[byte_idx:byte_idx+8], byte_idx)
-        field_type = header_ushorts[0]
-        field_len = header_ushorts[1]
-        field_id = header_uints[1]
+        header_uint16s = unpack_uint16(
+                self.in_bytes[byte_idx:byte_idx+8], endian="<")
+        header_uint32s = unpack_uint32(
+                self.in_bytes[byte_idx:byte_idx+8], endian="<")
+        field_type = header_uint16s[0]
+        field_len = header_uint16s[1]
+        field_id = header_uint32s[1]
 
-        # field_len of 1 or 2 means field_len=20
-        if field_len == 1 or field_len == 2:
+        # field_len of 1 means field_len=20 (only known to occur in
+        #   Data Block pointer fields in file header)
+        if field_len == 1:
             field_len = 20
 
-        return (field_type, field_len, field_id, header_ushorts, header_uints)
+        return (field_type, field_len, field_id)
 
 
-    def _process_payload_type0(self, payload_idx):
-        # Finding the end of the jump algorithm
-        # READ:
-        #   ushort field_type=0
-        #   ushort 8
-        #   ushort 0
-        #   ushort 0
-        #   4*ushort
-        #   ushort A
-        #   if A==0 read 6*ushort, goto prev else exit, return this idx
-
-        byte_idx = payload_idx
-        byte_idx = byte_idx + 8
-        while True:
-            # do the next 7 ushorts start with a '0' value? if so keep looping
-            (test_ushorts, _) = self._get_ushorts(
-                    self.in_bytes[byte_idx:byte_idx+14], byte_idx)
-            if test_ushorts[0] != 0:
-                # next ushort was not 0, so it is valid field_type
-                break
-            byte_idx = byte_idx + 14
-
-        field_len = byte_idx - (payload_idx - 8)
-        return field_len
-
-
-    def _read_field_lite(self, byte_idx, field_data={}, field_ids={}):
+    def _read_field_lite(self, byte_idx):
         field_info = {}
         # read header
-        (field_type, field_len, field_id, _,
-                _) = self._process_field_header(byte_idx)
-
-        # get field_len if jump field
-        if field_type == 0:
-            field_len = self._process_payload_type0(byte_idx+8)
+        (field_type, field_len, field_id) = self._process_field_header(byte_idx)
 
         # get payload bytes
         field_payload = self.in_bytes[byte_idx+8:byte_idx+field_len]
 
-        # check for references
-        references = []
-        if len(field_payload) % 4 == 0:
-            (out_uints, _) = self._get_uints(field_payload, byte_idx+8)
-            references = [x for x in out_uints if x in field_ids]
-
         field_info['type'] = field_type
         field_info['id'] = field_id
+        field_info['start'] = byte_idx
+        field_info['len'] = field_len
         field_info['payload'] = field_payload
-        field_info['references'] = references
 
         return (byte_idx+field_len, field_info)
 
 
-    def _parse_data_blocks(self):
+    def _parse_file_header(self):
         # reset loop variables
         byte_idx = 160
         self.data_start = {}
         self.data_len = {}
-        # init img data start at max 32-bit value
-        self.data_start[10] = 0xffffffff
 
-        while byte_idx < len(self.in_bytes):
+        # Verify magic file number indicates 1sc file
+        magic_number = unpack_uint16(self.in_bytes[0:2], endian="<")
+        if magic_number[0] != 0xafaf:
+            raise BioRadInvalidFileError("Bad Magic Number")
+
+        # Verify which endian, e.g. Intel Format == little-endian
+        endian_format = unpack_string(self.in_bytes[32:56])
+        if endian_format.startswith('Intel Format'):
+            # little-endian
+            self.endian = "<"
+        else:
+            # big-endian
+            # TODO: find a non Intel Format file to verify this?
+            self.endian = ">"
+
+        # Verify Scan File ID Text
+        biorad_id = unpack_string(self.in_bytes[56:136])
+        if not biorad_id.startswith('Bio-Rad Scan File'):
+            raise BioRadInvalidFileError("Bad File Header")
+
+        # get end of file header / start of data block 0
+        file_header_end = unpack_uint32(self.in_bytes[148:152], endian="<")
+        file_header_end = file_header_end[0]
+
+        # get all data block pointers
+        while byte_idx < file_header_end:
             field_start = byte_idx
 
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
@@ -395,22 +587,17 @@ class Reader():
                     140:5, 126:6, 127:7, 128:8, 129:9, 130:10}
             if field_info['type'] in block_ptr_types:
                 block_num = block_ptr_types[field_info['type']]
-                (out_uints, _) = self._get_uints(field_info['payload'], 0)
-                self.data_start[block_num] = out_uints[0]
-                self.data_len[block_num] = out_uints[1]
+                out_uint32s = unpack_uint32(
+                        field_info['payload'], endian="<")
+                self.data_start[block_num] = out_uint32s[0]
+                self.data_len[block_num] = out_uint32s[1]
 
-            #if field_info['id'] != 0:
-            #    field_ids[field_info['id']] = field_info
+            if field_info['type'] == 0:
+                break
 
             # break if we still aren't advancing
             if byte_idx == field_start:
-                print("ERROR!!")
-                break
-
-            if self.data_start[10] != 0xffffffff and len(self.data_start) > 10:
-                # break when we get all data block pointers
-                break
-
+                raise Exception("Problem parsing file header")
 
 """
 1sc FILE FORMAT NOTES:
@@ -418,9 +605,9 @@ class Reader():
 Header
     <2-byte field_type>
     <2-byte byte length of entire field (len(Header) + len(Payload))>
-    <4-byte uint field_id>
+    <4-byte uint32 field_id>
 Payload
-    <bytes or ushort or uint until end of field>
+    <bytes or uint16 or uint32 until end of field>
 
 --------------------------
 root types: 102, 1000, 1004, 1015
@@ -457,122 +644,122 @@ type 16 can be repeatedly referenced
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=6180 4 uints before end of Jump Field,
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=6180 4 uint32s before end of Jump Field,
       right before field_type=102, data corresponding to text label
       "Audit Trail"
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=140's data block
 
 127   Data Block 7 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=1020 4 uints before end of Jump Field,
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=1020 4 uint32s before end of Jump Field,
       right before field_type=1000 with "Audit Trail" text inside
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=126's data block
 
 128   Data Block 8 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=7293 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=7293 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=127's data block
 
 129   Data Block 9 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=1533 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=1533 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=128's data block
 
 130   Data Block 10 - Image Data Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=68 4 uints before end of Jump Field,
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=68 4 uint32s before end of Jump Field,
       right at IMAGE DATA START
       ends at end of image data (could be end of file)
       Image data pointer
-      uint[0] = img data start, uint[1] = img data length
+      uint32[0] = img data start, uint32[1] = img data length
       this starts after end of field_type=129's data block
 
 132   Data Block 2 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=?? 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=143's data block
 
 133   Data Block 3 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=?? 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=132's data block
 
 140   Data Block 5 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=?? 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=141's data block
 
 141   Data Block 4 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=?? 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=133's data block
 
 142   Data Block 0 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=40 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=40 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of long zero fill after 160-380 fields
 
 143   Data Block 1 Info
       NO references to other fields
       NOT referenced by other field
       field_id = 0
-      field_len = 20 (header_ushorts[1] = 1)
-      1st uint a pointer to byte val=40 4 uints before end of Jump Field,
-      ends at another spot 4 uints before end of Jump Field
-      uint[0] = data block start, uint[1] = data length
+      field_len = 20 (header_uint16s[1] = 1)
+      1st uint32 a pointer to byte val=40 4 uint32s before end of Jump Field,
+      ends at another spot 4 uint32s before end of Jump Field
+      uint32[0] = data block start, uint32[1] = data length
       this starts after end of field_type=142's data block
 
 --------------------------
 16    String field - text label assigned to previous data through data_id
       NO references to other fields
       YES referenced by: 100, 101, 102, 131, 1000
-      field_id: MSShort: one of {0x0085, 0x0086, 0x0087, 0x0088, 0x008a, 0x014a,
+      field_id: MSUint16: one of {0x0085, 0x0086, 0x0087, 0x0088, 0x008a, 0x014a,
         0x014c, 0x014d, 0x0919, 0x091b, 0x1004, 0x1043, 0x1045, 0x107b, 0x107d,
         0x1083, 0x1097, 0x1099, 0x10b9, 0x10d9, 0x11e4, 0x1289, 0x1441}
 
@@ -588,34 +775,34 @@ type 16 can be repeatedly referenced
       YES references to: 16,
       YES referenced by: 101,
       Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uints in this field payload
+      data_id uint32s in this field payload
       Every 36 bytes is data item
-      Bytes 12-15 are uint data_id tag
+      Bytes 12-15 are uint32 data_id tag
 
 101   Data field - contains multiple data assigned to future text labels
       YES references to: 16, 100
       YES referenced by: 102
       Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uints in this field payload
+      data_id uint32s in this field payload
       Every 20 bytes is data item
-      Bytes 16-19 are uint data_id tag
+      Bytes 16-19 are uint32 data_id tag
 
 102   Data field - contains multiple data assigned to future text labels
       ROOT FIELD of hierarchy
       YES references to: 16, 101
       NOT referenced by other field
       Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uints in this field payload
+      data_id uint32s in this field payload
       Every 16 bytes is data item
-      Bytes 12-15 are uint data_id tag
+      Bytes 12-15 are uint32 data_id tag
 
 131   Data field - contains multiple data assigned to future text labels
       YES references to: 16, 1000
       YES referenced by: 1040
       Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uints in this field payload
+      data_id uint32s in this field payload
       Every 12 bytes is data item
-      Bytes 4-7 are uint data_id tag
+      Bytes 4-7 are uint32 data_id tag
 
 1000  pointed from data in 100 (and other types?)
       ROOT FIELD of hierarchy
@@ -657,9 +844,9 @@ type 16 can be repeatedly referenced
 1022  No data items, only data_id tags?
       YES references to: 16
       YES referenced by: 1024
-      4 uints in payload, first 3 uints are data_id tags
+      4 uint32s in payload, first 3 uint32s are data_id tags
       Every 4 bytes is data item, last 4 bytes are not used (??)
-      Bytes 0-3 are uint data_id tag
+      Bytes 0-3 are uint32 data_id tag
 
 1024
       YES references to: 1022
