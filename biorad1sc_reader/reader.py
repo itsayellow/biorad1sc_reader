@@ -3,6 +3,7 @@
 # see LARGE amount of file format notes at end of this file
 
 import sys
+import time
 import os.path
 import struct
 from biorad1sc_reader.errors import BioRadInvalidFileError
@@ -24,6 +25,40 @@ else:
     print("No Numpy")
 
 
+DATA_TYPES = {
+        1:"u?byte",
+        2:"u?byte/ASCII",
+        3:"u?int16",
+        4:"uint16",
+        5:"u?int32",
+        6:"u?int32",
+        7:"uint64",
+        9:"uint32",
+        10:"8-byte - float?",
+        15:"uint32 Reference",
+        17:"uint32 Reference",
+        131:"12-byte??",
+        1001:"8- or 24-byte??",
+        1002:"24-byte??",
+        1003:"8-byte (x,y)??",
+        1004:"8- or 16-byte (x1,y1,x2,y2)??",
+        1005:"64-byte??",
+        1006:"640-byte??",
+        1010:"144-byte??",
+        1016:"440-byte??",
+        1020:"32-byte??",
+        1027:"8-byte??",
+        1032:"12-byte??",
+        }
+
+
+def is_ascii(byte_stream):
+    result = True
+    for byte in list(byte_stream):
+        result = result and (byte in [0,9,10,13,] or byte in range(32,127))
+    return result
+
+    
 def unpack_string(byte_stream):
     out_string = byte_stream.decode("utf-8", "replace")
     return out_string
@@ -443,22 +478,81 @@ class Reader():
         return field_info_payload
 
 
+    def _process_data_region(self, region, payload, field_ids, data_types):
+        region_data = {}
+        data_region_start = region['byte_offset']
+        data_region_end = region['byte_offset'] + \
+                region['word_size'] * region['num_words']
+        data_raw = payload[data_region_start:data_region_end]
+        region_data['raw'] = data_raw
+
+        data_proc = None
+        data_interp = None
+
+        if region['data_type'] in [1,2]:
+            # byte / ASCII
+            if is_ascii(data_raw):
+                data_proc = data_raw.rstrip(b"\x00").decode('utf-8','ignore')
+            else:
+                data_proc = unpack_uint8(data_raw)
+        elif region['data_type'] in [3,4]:
+            # u?int16
+            data_proc = unpack_uint16(data_raw, endian="<")
+        elif region['data_type'] in [5,6,9]:
+            # u?int32
+            data_proc = unpack_uint32(data_raw, endian="<")
+            if region['label'].endswith("time"):
+                # TODO: what time format?
+                data_interp = time.asctime(time.gmtime(data_proc[0]))
+        elif region['data_type'] in [7,]:
+            # u?int64
+            data_proc = unpack_uint64(data_raw, endian="<")
+        elif region['data_type'] in [15,17]:
+            # uint32 Reference
+            data_proc = unpack_uint32(data_raw, endian="<")
+            this_ref = data_proc[0]
+            if this_ref != 0:
+                if field_ids[this_ref]['type'] == 16:
+                    region_str = field_ids[this_ref]['payload'][:-1]
+                    data_interp = region_str.decode("utf-8", "ignore")
+                else:
+                    field_info = field_ids[this_ref]
+                    # TODO: make recursive work
+                    #self._process_payload_data_container(
+                    #        field_info,
+                    #        data_types,
+                    #        field_ids
+                    #        )
+                    data_interp = "REF"
+            else:
+                data_interp = None
+        else:
+            # TODO: make generic data types work based on word_size
+            pass
+
+        region_data['proc'] = data_proc
+        region_data['interp'] = data_interp
+        return region_data
+    
+
     def _process_payload_data_container(self,
             field_info, data_types, field_ids):
         data_dict = {}
         this_data_field = data_types[field_info['type']]
         data_key = field_ids[this_data_field['data_key_ref']]['regions']
-        payload = field_info['payload']
 
         for dkey in data_key:
             region = data_key[dkey]
-            data_reg_start = region['byte_offset']
-            data_reg_end = region['byte_offset'] + \
-                    region['word_size'] * region['num_words']
-            region_data = payload[data_reg_start:data_reg_end]
+            region_data = self._process_data_region(
+                    region,
+                    field_info['payload'],
+                    field_ids,
+                    data_types
+                    )
             data_dict[region['label']] = region_data
 
         return data_dict
+
 
     def get_img_metadata2(self):
         """
@@ -493,12 +587,11 @@ class Reader():
                 (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
-            elif field_info['type'] == 2:
+            elif field_info['type'] in [2,16]:
                 # TODO: is type 2 ever useful?
                 pass
-            elif field_info['type'] == 16:
-                pass
             elif field_info['type'] == 102:
+                # collection definition
                 data_types = {}
                 data_key = {}
                 field_payload_info = self._process_payload_type102(
@@ -507,21 +600,19 @@ class Reader():
                 collections[field_info['collection_label']] = {}
                 this_coll = collections[field_info['collection_label']]
             elif field_info['type'] == 101:
+                # collection items
                 field_payload_info = self._process_payload_type101(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
                 data_types = field_info['items']
-                #for data_type in data_types:
-                #    dkey_ref = data_types[data_type]['data_key_ref']
-                #    data_key[dkey_ref] = data_type
             elif field_info['type'] == 100:
+                # data keys (data format)
                 field_payload_info = self._process_payload_type100(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
                 field_ids[field_info['id']] = field_info
-                #data_type = data_key[field_info['id']]
-                #data_types[data_type]['regions'] = field_info['regions']
             elif field_info['type'] in data_types:
+                # data containers
                 data_dict = self._process_payload_data_container(
                         field_info,
                         data_types,
@@ -529,8 +620,9 @@ class Reader():
                         )
                 this_coll[data_types[field_info['type']]['label']] = data_dict
             else:
-                print(field_info['type'])
-                raise Exception("Error processing collection")
+                raise Exception(
+                        "Unknown Field Type %d in Collection"%field_info['type']
+                        )
             
         return collections
         
