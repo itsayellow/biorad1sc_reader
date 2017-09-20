@@ -25,38 +25,36 @@ else:
     print("No Numpy")
 
 
-DATA_TYPES = {
-        1:"u?byte",
-        2:"u?byte/ASCII",
-        3:"u?int16",
-        4:"uint16",
-        5:"u?int32",
-        6:"u?int32",
-        7:"uint64",
-        9:"uint32",
-        10:"8-byte - float?",
-        15:"uint32 Reference",
-        17:"uint32 Reference",
-        131:"12-byte??",
-        1001:"8- or 24-byte??",
-        1002:"24-byte??",
-        1003:"8-byte (x,y)??",
-        1004:"8- or 16-byte (x1,y1,x2,y2)??",
-        1005:"64-byte??",
-        1006:"640-byte??",
-        1010:"144-byte??",
-        1016:"440-byte??",
-        1020:"32-byte??",
-        1027:"8-byte??",
-        1032:"12-byte??",
-        }
+#DATA_TYPES = {
+#        1:"u?byte",
+#        2:"u?byte/ASCII",
+#        3:"u?int16",
+#        4:"uint16",
+#        5:"u?int32",
+#        6:"u?int32",
+#        7:"uint64",
+#        9:"uint32",
+#        15:"uint32 Reference",
+#        17:"uint32 Reference",
+#        131:"12-byte??",
+#        1001:"8- or 24-byte??",
+#        1002:"24-byte??",
+#        1003:"8-byte (x,y)??",
+#        1004:"8- or 16-byte (x1,y1,x2,y2)??",
+#        1005:"64-byte??",
+#        1006:"640-byte??",
+#        1010:"144-byte??",
+#        1016:"440-byte??",
+#        1020:"32-byte??",
+#        1027:"8-byte??",
+#        1032:"12-byte??",
+#        }
 
 
 def is_ascii(byte_stream):
-    result = True
-    for byte in list(byte_stream):
-        result = result and (byte in [0,9,10,13,] or byte in range(32,127))
-    return result
+    return all(
+            [byte in [0,9,10,13,] + list(range(32,127)) for byte in byte_stream]
+            )
 
     
 def unpack_string(byte_stream):
@@ -488,50 +486,68 @@ class Reader():
 
         data_proc = None
         data_interp = None
+        data_type_str = None
 
         if region['data_type'] in [1,2]:
             # byte / ASCII
-            if is_ascii(data_raw):
+            if len(data_raw) > 1 and is_ascii(data_raw):
                 data_proc = data_raw.rstrip(b"\x00").decode('utf-8','ignore')
+                data_type_str = "ASCII"
             else:
                 data_proc = unpack_uint8(data_raw)
+                data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+                data_type_str = "byte"
         elif region['data_type'] in [3,4]:
             # u?int16
             data_proc = unpack_uint16(data_raw, endian="<")
+            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_type_str = "uint16"
         elif region['data_type'] in [5,6,9]:
             # u?int32
             data_proc = unpack_uint32(data_raw, endian="<")
+            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
             if region['label'].endswith("time"):
                 # TODO: what time format?
-                data_interp = time.asctime(time.gmtime(data_proc[0]))
+                data_interp = time.asctime(time.gmtime(data_proc))
+            data_type_str = "uint32"
         elif region['data_type'] in [7,]:
             # u?int64
             data_proc = unpack_uint64(data_raw, endian="<")
+            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_type_str = "uint64"
         elif region['data_type'] in [15,17]:
             # uint32 Reference
             data_proc = unpack_uint32(data_raw, endian="<")
-            this_ref = data_proc[0]
+            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            this_ref = data_proc
             if this_ref != 0:
                 if field_ids[this_ref]['type'] == 16:
                     region_str = field_ids[this_ref]['payload'][:-1]
                     data_interp = region_str.decode("utf-8", "ignore")
                 else:
-                    field_info = field_ids[this_ref]
-                    # TODO: make recursive work
-                    #self._process_payload_data_container(
-                    #        field_info,
-                    #        data_types,
-                    #        field_ids
-                    #        )
-                    data_interp = "REF"
+                    field_info_ref = field_ids[this_ref]
+                    # recurse into the data container field referenced
+                    data_interp = self._process_payload_data_container(
+                            field_info_ref,
+                            data_types,
+                            field_ids
+                            )
             else:
                 data_interp = None
+            data_type_str = "uint32 Reference"
         else:
-            # TODO: make generic data types work based on word_size
             pass
+            # TODO: make generic data types work based on word_size?
+            #print("Data Type "+ repr(region['data_type']) + " is Unknown",
+            #        file=sys.stderr)
+            #print("  word_size: " + repr(region['word_size']))
+            #print("  num_words: " + repr(region['num_words']))
 
         region_data['proc'] = data_proc
         region_data['interp'] = data_interp
+        region_data['type'] = data_type_str
+        region_data['type_num'] = region['data_type']
+
         return region_data
     
 
