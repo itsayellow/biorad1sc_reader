@@ -2,7 +2,7 @@
 
 # see LARGE amount of file format notes at end of this file
 
-import sys
+#import sys
 import time
 import os.path
 import struct
@@ -12,7 +12,7 @@ from biorad1sc_reader.errors import BioRadInvalidFileError
 from PIL import Image
 try:
     import numpy as np
-except:
+except ModuleNotFoundError:
     HAS_NUMPY = False
 else:
     HAS_NUMPY = True
@@ -52,11 +52,12 @@ else:
 
 
 def is_ascii(byte_stream):
+    ok_ascii_byte = [0, 9, 10, 13] + list(range(32, 127))
     return all(
-            [byte in [0,9,10,13,] + list(range(32,127)) for byte in byte_stream]
+            [byte in ok_ascii_byte for byte in byte_stream]
             )
 
-    
+
 def unpack_string(byte_stream):
     out_string = byte_stream.decode("utf-8", "replace")
     return out_string
@@ -86,7 +87,7 @@ def unpack_uint64(byte_stream, endian="<"):
     return out_uint64s
 
 
-def update_item_datakey(this_collection,field_info):
+def update_item_datakey(this_collection, field_info):
     data_id = field_info['id']
     for item in this_collection['items']:
         if this_collection['items'][item]['data_key_ref'] == data_id:
@@ -101,7 +102,7 @@ def save_u16_to_tiff(u16in, size, tiff_filename):
     # write 16-bit TIFF image
 
     # PIL interprets mode 'I;16' as "uint16, little-endian"
-    img_out = Image.new('I;16',size)
+    img_out = Image.new('I;16', size)
 
     if HAS_NUMPY:
         # make sure u16in little-endian, output bytes
@@ -205,7 +206,7 @@ class Reader():
                             )
                 # assign using index array
                 self.img_data = img_data[img_data_idx]
-                
+
             else:
                 # little-endian unsigned uint16s (2-bytes)
                 img_data = list(
@@ -217,7 +218,7 @@ class Reader():
                 # re-arrange image data so top-to-bottom
                 #   1sc makes botttom to top originally
                 self.img_data = []
-                for i in range(len(img_data),0,-self.img_size_x):
+                for i in range(len(img_data), 0, -self.img_size_x):
                     self.img_data = self.img_data + img_data[i-self.img_size_x:i]
 
         if invert:
@@ -231,7 +232,7 @@ class Reader():
         #mytimer.eltime_pr("get_img_data END\t")
         return(self.img_size_x, self.img_size_y, img_data)
 
-    
+
     def save_img_as_tiff(self, tiff_filename, invert=False):
         # takes ~14ms currently for 696x520 (WITH numpy)
         # takes ~65ms currently for 696x520 (NO numpy)
@@ -248,7 +249,7 @@ class Reader():
                 )
 
         #mytimer.eltime_pr("save_img_as_tiff END\t")
-        
+
 
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
         # takes  ~45ms currently for 696x520 (WITH numpy)
@@ -283,7 +284,7 @@ class Reader():
             #   unsigned dtypes cause negative values to wrap to large pos
             #   signed dtypes automatically adjust to size of value,
             #       positive or negative
-            img_data = np.array(img_data,dtype='int32')
+            img_data = np.array(img_data, dtype='int32')
             img_data_scale = (img_data-img_min)*(2**16-1)/img_span
 
             # enforce max and min via clipping
@@ -296,7 +297,7 @@ class Reader():
             img_data_scale = [int((x-img_min)*(2**16-1)/img_span) for x in img_data]
 
             # enforce max and min via clipping
-            img_data_scale = [min(max(x,0),2**16-1) for x in img_data_scale]
+            img_data_scale = [min(max(x, 0), 2**16-1) for x in img_data_scale]
 
         # save to tiff file
         save_u16_to_tiff(
@@ -306,7 +307,7 @@ class Reader():
                 )
 
         #mytimer.eltime_pr("save_img_as_tiff_sc END\t")
-        
+
 
     def get_img_metadata(self):
         """
@@ -335,7 +336,7 @@ class Reader():
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
             if field_info['type'] == 0:
                 # we just saw an End Of Data Block Field
-                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                (_, end_idx) = self._get_next_data_block_end(byte_idx)
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
 
@@ -422,7 +423,7 @@ class Reader():
 
             data_field_type = uint16s[u16start]
 
-            assert field_payload_items.get(data_field_type,False) is False, \
+            assert field_payload_items.get(data_field_type, False) is False, \
                     "Field Type 101: multiple entries, same data field type"
 
             field_payload_items[data_field_type] = {}
@@ -461,7 +462,7 @@ class Reader():
             ref_label = uint32s[u32start+3]
             region_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
             region_label = region_label.decode('utf-8', 'ignore')
-            
+
             field_payload_regions[i] = {}
             field_payload_regions[i]['data_type'] = uint16s[u16start]
             field_payload_regions[i]['label'] = region_label
@@ -488,24 +489,24 @@ class Reader():
         data_interp = None
         data_type_str = None
 
-        if region['data_type'] in [1,2]:
+        if region['data_type'] in [1, 2]:
             # byte / ASCII
             if len(data_raw) > 1 and is_ascii(data_raw):
-                data_proc = data_raw.rstrip(b"\x00").decode('utf-8','ignore')
+                data_proc = data_raw.rstrip(b"\x00").decode('utf-8', 'ignore')
                 data_type_str = "ASCII"
             else:
                 data_proc = unpack_uint8(data_raw)
-                data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+                data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
                 data_type_str = "byte"
-        elif region['data_type'] in [3,4]:
+        elif region['data_type'] in [3, 4]:
             # u?int16
             data_proc = unpack_uint16(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
             data_type_str = "uint16"
-        elif region['data_type'] in [5,6,9]:
+        elif region['data_type'] in [5, 6, 9]:
             # u?int32
             data_proc = unpack_uint32(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
             if region['label'].endswith("time"):
                 # TODO: what time format?
                 data_interp = time.asctime(time.gmtime(data_proc))
@@ -513,12 +514,12 @@ class Reader():
         elif region['data_type'] in [7,]:
             # u?int64
             data_proc = unpack_uint64(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
             data_type_str = "uint64"
-        elif region['data_type'] in [15,17]:
+        elif region['data_type'] in [15, 17]:
             # uint32 Reference
             data_proc = unpack_uint32(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc)==1 else data_proc
+            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
             this_ref = data_proc
             if this_ref != 0:
                 if field_ids[this_ref]['type'] == 16:
@@ -549,7 +550,7 @@ class Reader():
         region_data['type_num'] = region['data_type']
 
         return region_data
-    
+
 
     def _process_payload_data_container(self,
             field_info, data_types, field_ids):
@@ -575,7 +576,6 @@ class Reader():
         Fetch All Metadata in File
         """
         field_ids = {}
-        fields102 = {}
         collections = {}
 
         # start at first field of Data Block 0, get all ids
@@ -586,7 +586,7 @@ class Reader():
 
             if field_info['type'] == 0:
                 # we just saw an End Of Data Block Field
-                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                (_, end_idx) = self._get_next_data_block_end(byte_idx)
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
 
@@ -600,16 +600,15 @@ class Reader():
 
             if field_info['type'] == 0:
                 # we just saw an End Of Data Block Field
-                (block_num, end_idx) = self._get_next_data_block_end(byte_idx)
+                (_, end_idx) = self._get_next_data_block_end(byte_idx)
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
-            elif field_info['type'] in [2,16]:
+            elif field_info['type'] in [2, 16]:
                 # TODO: is type 2 ever useful?
                 pass
             elif field_info['type'] == 102:
                 # collection definition
                 data_types = {}
-                data_key = {}
                 field_payload_info = self._process_payload_type102(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
@@ -639,9 +638,9 @@ class Reader():
                 raise Exception(
                         "Unknown Field Type %d in Collection"%field_info['type']
                         )
-            
+
         return collections
-        
+
 
     def _process_field_header(self, byte_idx):
         # read header
@@ -743,158 +742,65 @@ Payload
     <bytes or uint16 or uint32 until end of field>
 
 --------------------------
-root types: 102, 1000, 1004, 1015
+root type: 102
 type 16 can be repeatedly referenced
 
 --------------------------
 102  ->  101 ->  100 ->  16
     \->  16 \->  16
 
-1015 -> 1008 -> 1007 -> 16
-    \-> 1024 -> 1022 -> 16
-    \-> 2
-
-1000 -> 1020 -> 1011 -> 1010 -> 1040 -> 131  -> 16
-    |       |               |       |       \-> 1000 -> ...
-    |       |               |       \-> 1000 -> ...
-    |       |               \-> 1000 -> ...
-    |       \-> 1000 -> ...
-    \-> 1030 -> 1040 -> ...
-    |       \-> 1000 -> ...
-    \-> 1000 -> ...
-    \-> 16
-
 --------------------------
-0     Jump Field - nop filler data
-      NO references to other fields
-      NOT referenced by other field
-      field_id = 0
-      Around data block boundaries
-      Contains info about data block, at end and beginning of data block
-
+0     End Of Data Block Field.
+      Following this field is Data Block Footer, Data Block Header
 --------------------------
 126   Data Block 6 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=6180 4 uint32s before end of Jump Field,
-      right before field_type=102, data corresponding to text label
-      "Audit Trail"
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=140's data block
 
 127   Data Block 7 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=1020 4 uint32s before end of Jump Field,
-      right before field_type=1000 with "Audit Trail" text inside
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=126's data block
 
 128   Data Block 8 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=7293 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=127's data block
 
 129   Data Block 9 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=1533 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=128's data block
 
 130   Data Block 10 - Image Data Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=68 4 uint32s before end of Jump Field,
-      right at IMAGE DATA START
-      ends at end of image data (could be end of file)
-      Image data pointer
-      uint32[0] = img data start, uint32[1] = img data length
-      this starts after end of field_type=129's data block
 
 132   Data Block 2 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=143's data block
 
 133   Data Block 3 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=132's data block
 
 140   Data Block 5 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=141's data block
 
 141   Data Block 4 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=?? 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=133's data block
 
 142   Data Block 0 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=40 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of long zero fill after 160-380 fields
 
 143   Data Block 1 Info
-      NO references to other fields
-      NOT referenced by other field
       field_id = 0
       field_len = 20 (header_uint16s[1] = 1)
-      1st uint32 a pointer to byte val=40 4 uint32s before end of Jump Field,
-      ends at another spot 4 uint32s before end of Jump Field
-      uint32[0] = data block start, uint32[1] = data length
-      this starts after end of field_type=142's data block
 
 --------------------------
 16    String field - text label assigned to previous data through data_id
       NO references to other fields
       YES referenced by: 100, 101, 102, 131, 1000
-      field_id: MSUint16: one of {0x0085, 0x0086, 0x0087, 0x0088, 0x008a, 0x014a,
-        0x014c, 0x014d, 0x0919, 0x091b, 0x1004, 0x1043, 0x1045, 0x107b, 0x107d,
-        0x1083, 0x1097, 0x1099, 0x10b9, 0x10d9, 0x11e4, 0x1289, 0x1441}
 
 --------------------------
 2     nop field? - payload is all 0's, otherwise normal header
@@ -929,180 +835,7 @@ type 16 can be repeatedly referenced
       Every 16 bytes is data item
       Bytes 12-15 are uint32 data_id tag
 
-131   Data field - contains multiple data assigned to future text labels
-      YES references to: 16, 1000
-      YES referenced by: 1040
-      Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uint32s in this field payload
-      Every 12 bytes is data item
-      Bytes 4-7 are uint32 data_id tag
-
-1000  pointed from data in 100 (and other types?)
-      ROOT FIELD of hierarchy
-      YES references to: 16, 1000, 1020, 1030
-      YES referenced by: 131, 1000, 1010, 1020, 1030, 1040,
-      Sometimes for field_type= 16, sometimes not (??)
-      Is format fixed based on which data block?
-
-1004  nop field? - payload is all 0's, otherwise normal header
-      ROOT FIELD of hierarchy
-      NO references to other fields
-      NOT referenced by other field
-
-1007
-      YES references to: 16
-      YES referenced by: 1008
-
-1008
-      YES references to: 1007
-      YES referenced by: 1015
-
-1010
-      YES references to: 1000, 1040
-      YES referenced by: 1011
-
-1011
-      YES references to: 1010
-      YES referenced by: 1020
-
-1015
-      ROOT FIELD of hierarchy
-      YES references to: 1008, 1024, 2
-      NOT referenced by other field
-
-1020
-      YES references to: 1000, 1011
-      YES referenced by: 1000
-
-1022  No data items, only data_id tags?
-      YES references to: 16
-      YES referenced by: 1024
-      4 uint32s in payload, first 3 uint32s are data_id tags
-      Every 4 bytes is data item, last 4 bytes are not used (??)
-      Bytes 0-3 are uint32 data_id tag
-
-1024
-      YES references to: 1022
-      YES referenced by: 1015
-
-1030
-      YES references to: 1000, 1040
-      YES referenced by: 1000
-
-1040
-      YES references to: 131, 1000
-      YES referenced by: 1010, 1030
-
---------------------------
-Data Block 00
-    Fields type 16, 100, 101, 102
-
-Data Block 01
-    Fields type 1004
-    Either NOP (no data) field, or no data in example 1sc files in possession
-
-Data Block 02
-    Fields type 16, 100, 101, 102
-
-Data Block 03
-    Fields type 16, 1000
-
-    Strings (field_type=16):
-	Mol. Wt.
-	KDa
-	Chemi 2017-05-17 10hr 56min-2
-	C:\files del Chemidoc\E Colla
-	Chemi 2017-05-17 10hr 56min-2.1sc
-
-Data Block 04
-    Fields type 16, 100, 101, 102
-
-Data Block 05
-    Fields type 2, 16, 10007, 1008, 1015, 1022, 1024
-
-    Strings (field_type=16):
-        C:\files del Chemidoc\E Colla
-        Chemi 2017-05-17 10hr 56min-2.1sc
-        Chemi 2017-05-17 10hr 56min-2 (Raw 1-D I
-        Base Pairs, Base Pairs, BP,
-	Isoelectric Point, Iso. Pt., pI,
-	Isoelectric Point, Iso. Pt., pI
-	Molecular Weight, Mol. Wt., KDa
-	Normalized Rf, Norm. Rf, NRf
-
-Data Block 06
-    Fields type 16, 100, 101, 102
-
-Data Block 07
-    Fields type 16, 131, 1000, 1010, 1011, 1020, 1030, 1040
-
-    Strings (field_type=16):
-        Scanner Name: ChemiDoc XRS
-        Number of Pixels: (696 x 520)
-        Image Area: (200.0 mm x 149.4 mm)
-        Scan Memory Size: 836.32 Kb
-        Old file name: Chemi 2017-05-17 10hr 56min-2.1sc
-        New file name: A11 2017-05-17 10hr 56min-2 B.1sc
-        CHEMIDOC\Chemi
-        New Image Acquired
-        Save As...
-        Quantity One 4.6.8 build 027
-
-Data Block 08
-    Fields type 16, 100, 101, 102 with
-        text of and byte pointers to data in data block 09:
-        filevers, creation_date, last_use_date, user_id, prog_name, scanner,
-        old_description, old_comment, desc, pH_orient, Mr_orient, nxpix, nypix,
-        data_fmt, bytes_per_pix, endian, max_OD, pix_at_max_OD,
-        img_size_x, img_size_y, min_pix, max_pix, mean_pix, data_ceiling,
-        data_floor, cal, formula, imgstate, qinf, params, history, color,
-        light_mode, size_mode, norm_pix, bkgd_pix, faint_loc, small_loc,
-        large_box, bkgd_box, dtct_parm_name, m_id32, m_scnId, m_imagePK, SCN,
-
-        calfmt, dettyp, isotop, gel_run_date, cnts_loaded, xpo_start_date,
-        xpo_length, ScnCalibInfo
-
-        type, units, c_pro, c_exp, ScnFormula
-
-        x, y, ScnImgloc
-
-        first, last, ScnImgbox
-
-        mincon, maxcon, in, out, low_frac, high_frac, state, gamma, aspect,
-        ScnImgState
-
-        qty_range, qty_units, blackIsZero, scanner_maxpix, scanner_units,
-        scanner_bias, scanner_maxqty, calstep_count, calstep_raw, calstep_qty,
-        calstep_qty_offset, gray_response_data, gray_response_len,
-        gray_response_factor, ScnQtyInfo
-
-        x, y, ScnCrdloc
-
-        x, y, ScnCrdres
-
-        first, last, ScnCrdbox
-
-        resolution, scan_area, exposure_time, ref_bkg_time, gain_setting,
-        light_mode, color, intf_type, size_mode, imaging_mode,
-        filter_name1, filter_name2, filter_name3, filter_name4, filter_name5,
-        filter_id1, filter_id2, filter_id3, filter_id4, filter_id5,
-        laser_name1, laser_name2, laser_name3, laser_name4, laser_name5,
-        laser_id1, laser_id2, laser_id3, laser_id4, laser_id5,
-        pmt_voltage, dark_type, live_count, app_name, flat_field, ScnParams
-
-        GR_Data, GrayResponseData, Scan Header
-
-Data Block 09
-    Field type 1000 with
-        data for:
-        filevers, creation_date, last_use_date, user_id, prog_name, scanner,
-        old_description, old_comment, desc, pH_orient, Mr_orient, nxpix, nypix,
-        data_fmt, bytes_per_pix, endian, max_OD, pix_at_max_OD,
-        img_size_x, img_size_y, min_pix, max_pix, mean_pix, data_ceiling,
-        data_floor, cal, formula, imgstate, qinf, params, history, color,
-        light_mode, size_mode, norm_pix, bkgd_pix, faint_loc, small_loc,
-        large_box, bkgd_box, dtct_parm_name, m_id32, m_scnId, m_imagePK, SCN,
-
-Data Block 10
-    Only image data, no fields
+> 102 Data Container Fields
+      Contain Raw data, referred to by Fields Type 101, described by
+            Data Key Field 100
 """
