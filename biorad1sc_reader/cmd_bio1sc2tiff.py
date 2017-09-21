@@ -66,7 +66,7 @@ def main(argv=None):
 
         print("    -> "+outfilename)
         # open reader instance and read in file
-        bio1sc_reader = biorad1sc_reader.Reader(srcfilename )
+        bio1sc_reader = biorad1sc_reader.Reader(srcfilename)
 
         if args.scale:
             bio1sc_reader.save_img_as_tiff_sc(
