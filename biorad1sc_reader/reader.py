@@ -164,7 +164,7 @@ class Reader():
 
     def _get_img_size(self):
         # get img_size x and y
-        metadata = self.get_img_metadata()
+        metadata = self.get_img_summary()
         img_size = metadata['Number Of Pixels']
         img_size = img_size.strip('()')
         (img_size_x, img_size_y) = img_size.split(' x ')
@@ -309,7 +309,7 @@ class Reader():
         #mytimer.eltime_pr("save_img_as_tiff_sc END\t")
 
 
-    def get_img_metadata(self):
+    def get_img_summary(self):
         """
         Data Block 7 contains strings describing image:
 
@@ -319,7 +319,7 @@ class Reader():
         Scan Memory Size: 836.32 Kb
         Old file name: Chemi 2017-05-17 10hr 56min-2.1sc
         New file name: A11 2017-05-17 10hr 56min-2 B.1sc
-        CHEMIDOC\Chemi
+        CHEMIDOC\\Chemi
         New Image Acquired
         Save As...
         Quantity One 4.6.8 build 027
@@ -571,7 +571,7 @@ class Reader():
         return data_dict
 
 
-    def get_img_metadata2(self):
+    def get_metadata(self):
         """
         Fetch All Metadata in File
         """
@@ -730,8 +730,7 @@ class Reader():
             # break if we still aren't advancing
             if byte_idx == field_start:
                 raise Exception("Problem parsing file header")
-
-"""
+FILE_FORMAT_1SC = """
 1sc FILE FORMAT NOTES:
 --------
 Header
@@ -753,49 +752,32 @@ type 16 can be repeatedly referenced
 0     End Of Data Block Field.
       Following this field is Data Block Footer, Data Block Header
 --------------------------
+Data Block Info fields:
+    all
+    field_id = 0
+    field_len = 20 (header_uint16s[1] = 1)
+
 126   Data Block 6 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 127   Data Block 7 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 128   Data Block 8 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 129   Data Block 9 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 130   Data Block 10 - Image Data Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 132   Data Block 2 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 133   Data Block 3 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 140   Data Block 5 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 141   Data Block 4 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 142   Data Block 0 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 143   Data Block 1 Info
-      field_id = 0
-      field_len = 20 (header_uint16s[1] = 1)
 
 --------------------------
 16    String field - text label assigned to previous data through data_id
@@ -806,35 +788,24 @@ type 16 can be repeatedly referenced
 2     nop field? - payload is all 0's, otherwise normal header
       NO references to other fields
       YES referenced by: 1015
-      field_id = one of { 0x1099c4a8, 0x10b9d4a8, 0x10d9e4a8, 0x11e4a4a8,
-        0x128944a8, 0x144144a8}
-      field_len = 208
 
 100   Data field - contains multiple data assigned to future text labels
       YES references to: 16,
       YES referenced by: 101,
-      Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uint32s in this field payload
       Every 36 bytes is data item
-      Bytes 12-15 are uint32 data_id tag
 
 101   Data field - contains multiple data assigned to future text labels
       YES references to: 16, 100
       YES referenced by: 102
-      Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uint32s in this field payload
       Every 20 bytes is data item
-      Bytes 16-19 are uint32 data_id tag
 
 102   Data field - contains multiple data assigned to future text labels
       ROOT FIELD of hierarchy
       YES references to: 16, 101
       NOT referenced by other field
-      Last 4 bytes of field headers of field_type=16 is data_id that match
-      data_id uint32s in this field payload
       Every 16 bytes is data item
-      Bytes 12-15 are uint32 data_id tag
 
+--------------------------
 > 102 Data Container Fields
       Contain Raw data, referred to by Fields Type 101, described by
             Data Key Field 100
