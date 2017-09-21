@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
+"""
+Main reader module for Bio-Rad *.1sc files.  Includes public API class
+Reader.
+"""
+
 #import sys
 #import time
 import os.path
 import struct
+#import tictoc
 from biorad1sc_reader.errors import (
         BioRadInvalidFileError, BioRadParsingError
         )
@@ -13,7 +19,6 @@ from biorad1sc_reader.parsing import (
         process_payload_type102, process_payload_type101,
         process_payload_type100, process_payload_data_container
         )
-#import tictoc
 from PIL import Image
 try:
     import numpy as np
@@ -95,7 +100,7 @@ class Reader():
         """
         # very fast, usu ~600us
 
-        # TODO: reset all atributes of instance?
+        # reset all atributes of instance
         self.reset()
 
         self.filename = os.path.realpath(in_filename)
@@ -111,7 +116,9 @@ class Reader():
 
 
     def _get_img_size(self):
-        # get img_size x and y
+        """
+        Get img_size x and y, load into instance
+        """
         metadata = self.get_img_summary()
         img_size = metadata['Number Of Pixels']
         img_size = img_size.strip('()')
@@ -209,8 +216,9 @@ class Reader():
 
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
         """
-        Save image data from file as tiff.
-        Also ability to scale or invert brightness
+        Save image data from file as tiff, with brightness scale expanded from
+        min to max.
+        Also ability to invert brightness
         """
         # takes  ~45ms currently for 696x520 (WITH numpy)
         # takes ~250ms currently for 696x520 (NO numpy)
@@ -219,9 +227,6 @@ class Reader():
 
         (img_x, img_y, img_data) = self.get_img_data(invert=invert)
 
-        # TODO: find min/max based on %pixels above max, below min
-
-        # image data min/max
         img_min = min(img_data)
         img_max = max(img_data)
 

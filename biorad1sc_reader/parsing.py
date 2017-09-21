@@ -1,43 +1,72 @@
 #!/usr/bin/env python3
 
+"""
+Low-level routines to parse a Bio-Rad *.1sc file.  Intended to be
+used internally only.
+"""
+
 import time
 import struct
 
+
 def is_ascii(byte_stream):
+    """
+    If all bytes are normal ascii text with no control characters other
+    than NULL, LF, CR, TAB, then return True, else False.
+    """
     ok_ascii_byte = [0, 9, 10, 13] + list(range(32, 127))
     return all([byte in ok_ascii_byte for byte in byte_stream])
 
 
 def unpack_string(byte_stream):
+    """
+    Return decoded ASCII string from bytestring.
+    """
     out_string = byte_stream.decode("utf-8", "replace")
     return out_string
 
 
 def unpack_uint8(byte_stream):
+    """
+    Return list of bytes from bytestring.
+    """
     num_uint8 = len(byte_stream)
     out_uint8s = struct.unpack("B"*num_uint8, byte_stream)
     return out_uint8s
 
 
 def unpack_uint16(byte_stream, endian="<"):
+    """
+    Return list of uint16s, (either endian) from bytestring.
+    """
     num_uint16 = len(byte_stream)//2
     out_uint16s = struct.unpack(endian+"H"*num_uint16, byte_stream)
     return out_uint16s
 
 
 def unpack_uint32(byte_stream, endian="<"):
+    """
+    Return list of uint32s, (either endian) from bytestring.
+    """
     num_uint32 = len(byte_stream)//4
     out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
     return out_uint32s
 
 
 def unpack_uint64(byte_stream, endian="<"):
+    """
+    Return list of uint64s, (either endian) from bytestring.
+    """
     num_uint64 = len(byte_stream)//8
     out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
     return out_uint64s
 
 
 def process_payload_type102(field_payload, field_ids=None):
+    """
+    Process the payload of a 1sc Field Type 102, returning the relevant
+    data to a dict.
+    """
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
@@ -62,6 +91,10 @@ def process_payload_type102(field_payload, field_ids=None):
 
 
 def process_payload_type101(field_payload, field_ids=None):
+    """
+    Process the payload of a 1sc Field Type 101, returning the relevant
+    data to a dict.
+    """
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
@@ -105,6 +138,10 @@ def process_payload_type101(field_payload, field_ids=None):
 
 
 def process_payload_type100(field_payload, field_ids=None):
+    """
+    Process the payload of a 1sc Field Type 100, returning the relevant
+    data to a dict.
+    """
     if field_ids is None:
         field_ids = {}
     field_info_payload = {}
@@ -248,6 +285,10 @@ def process_data_region(region, payload, field_ids, data_types):
 
 def process_payload_data_container(
         field_info, data_types, field_ids):
+    """
+    Process the payload of a 1sc Field Type > 102, (a data container field,)
+    returning the relevant data to a dict.
+    """
     data_dict = {}
     this_data_field = data_types[field_info['type']]
     data_key = field_ids[this_data_field['data_key_ref']]['regions']
@@ -263,5 +304,3 @@ def process_payload_data_container(
         data_dict[region['label']] = region_data
 
     return data_dict
-
-
