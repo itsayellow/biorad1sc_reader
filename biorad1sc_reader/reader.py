@@ -354,8 +354,6 @@ class Reader():
         byte_idx = self.data_start[0] + 8
         while byte_idx < self.data_start[10]:
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
-            # TODO: remove payload before saving to field_ids?
-            field_ids[field_info['id']] = field_info
 
             if field_info['type'] == 0:
                 # we just saw an End Of Data Block Field
