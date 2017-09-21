@@ -7,7 +7,7 @@ import os.path
 import argparse
 import biorad1sc_reader
 
-def bio1sc2tiff_process_command_line(argv):
+def process_command_line(argv):
     """
     Return args struct
     `argv` is a list of arguments, or `None` for ``sys.argv[1:]``.
@@ -43,8 +43,8 @@ def bio1sc2tiff_process_command_line(argv):
 
     return args
 
-def bio1sc2tiff_main(argv=None):
-    args = bio1sc2tiff_process_command_line(argv)
+def main(argv=None):
+    args = process_command_line(argv)
 
     if args.output_filename and len(args.src_1sc_file)>1:
         print("Sorry, you cannot specify an output filename with more than " \
@@ -76,12 +76,12 @@ def bio1sc2tiff_main(argv=None):
 
     return 0
 
-def bio1sc2tiff():
+def entry_point():
     """
     intended to be called as a command from entry_points in setup.py
     """
     try:
-        status = bio1sc2tiff_main(sys.argv)
+        status = main(sys.argv)
     except KeyboardInterrupt:
         print("Stopped by Keyboard Interrupt", file=sys.stderr)
         # exit error code for Ctrl-C
@@ -90,6 +90,6 @@ def bio1sc2tiff():
     return status
 
 if __name__ == "__main__":
-    status = bio1sc2tiff()
+    status = entry_point()
 
     sys.exit(status)

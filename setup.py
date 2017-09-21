@@ -34,7 +34,7 @@ setup(
         python_requires='>=3',
         entry_points={
             'console_scripts': [
-                'bio1sc2tiff = biorad1sc_reader.util:bio1sc2tiff',
+                'bio1sc2tiff = biorad1sc_reader.cmd_bio1sc2tiff:entry_point',
                 ],
             },
         )
