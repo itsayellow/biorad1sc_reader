@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
-# see LARGE amount of file format notes at end of this file
-
 #import sys
-import time
+#import time
 import os.path
 import struct
 from biorad1sc_reader.errors import BioRadInvalidFileError
+from biorad1sc_reader.parsing import (
+        unpack_string,
+        unpack_uint16, unpack_uint32,
+        process_payload_type102, process_payload_type101,
+        process_payload_type100, process_payload_data_container
+        )
 #import tictoc
-
 from PIL import Image
 try:
     import numpy as np
@@ -25,76 +28,12 @@ else:
     print("No Numpy")
 
 
-#DATA_TYPES = {
-#        1:"u?byte",
-#        2:"u?byte/ASCII",
-#        3:"u?int16",
-#        4:"uint16",
-#        5:"u?int32",
-#        6:"u?int32",
-#        7:"uint64",
-#        9:"uint32",
-#        15:"uint32 Reference",
-#        17:"uint32 Reference",
-#        131:"12-byte??",
-#        1001:"8- or 24-byte??",
-#        1002:"24-byte??",
-#        1003:"8-byte (x,y)??",
-#        1004:"8- or 16-byte (x1,y1,x2,y2)??",
-#        1005:"64-byte??",
-#        1006:"640-byte??",
-#        1010:"144-byte??",
-#        1016:"440-byte??",
-#        1020:"32-byte??",
-#        1027:"8-byte??",
-#        1032:"12-byte??",
-#        }
-
-
-def is_ascii(byte_stream):
-    ok_ascii_byte = [0, 9, 10, 13] + list(range(32, 127))
-    return all(
-            [byte in ok_ascii_byte for byte in byte_stream]
-            )
-
-
-def unpack_string(byte_stream):
-    out_string = byte_stream.decode("utf-8", "replace")
-    return out_string
-
-
-def unpack_uint8(byte_stream):
-    num_uint8 = len(byte_stream)
-    out_uint8s = struct.unpack("B"*num_uint8, byte_stream)
-    return out_uint8s
-
-
-def unpack_uint16(byte_stream, endian="<"):
-    num_uint16 = len(byte_stream)//2
-    out_uint16s = struct.unpack(endian+"H"*num_uint16, byte_stream)
-    return out_uint16s
-
-
-def unpack_uint32(byte_stream, endian="<"):
-    num_uint32 = len(byte_stream)//4
-    out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
-    return out_uint32s
-
-
-def unpack_uint64(byte_stream, endian="<"):
-    num_uint64 = len(byte_stream)//8
-    out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
-    return out_uint64s
-
-
-def update_item_datakey(this_collection, field_info):
-    data_id = field_info['id']
-    for item in this_collection['items']:
-        if this_collection['items'][item]['data_key_ref'] == data_id:
-            this_collection['items'][item]['data_key'] = field_info['regions']
-
-
 def save_u16_to_tiff(u16in, size, tiff_filename):
+    """
+    Since Pillow has poor support for 16-bit TIFF, we make our own
+    save function to properly save a 16-bit TIFF.
+    """
+
     # takes  2-14ms currently for 696x520 (WITH numpy)
     # takes 15-41ms currently for 696x520 (NO numpy)
     #print("save_u16_to_tiff START")
@@ -120,6 +59,10 @@ def save_u16_to_tiff(u16in, size, tiff_filename):
 
 
 class Reader():
+    """
+    Object to manage reading a Bio-Rad *.1sc file and extracting
+    data from it, including image.
+    """
     def __init__(self, in_filename=None):
         self.data_start = None
         self.data_len = None
@@ -138,12 +81,15 @@ class Reader():
 
 
     def reset(self):
+        """
+        Reset all internal state.  (Must load file afterwards.)
+        """
         self.__init__()
 
 
     def open_file(self, in_filename):
         """
-        open file and read into memory
+        Open file and read into memory.
         """
         # very fast, usu ~600us
 
@@ -173,6 +119,10 @@ class Reader():
 
 
     def get_img_data(self, invert=False):
+        """
+        Return image_x_size, image_y_size, and list containing image data.
+        Also ability to invert brightness.
+        """
         # when extracting from file:
         # takes  ~60ms currently for 696x520 (WITH numpy)
         # takes ~500ms currently for 696x520 (NO numpy)
@@ -234,6 +184,10 @@ class Reader():
 
 
     def save_img_as_tiff(self, tiff_filename, invert=False):
+        """
+        Save image data from file as tiff.
+        Also ability to invert brightness
+        """
         # takes ~14ms currently for 696x520 (WITH numpy)
         # takes ~65ms currently for 696x520 (NO numpy)
         #print("save_img_as_tiff: START")
@@ -252,6 +206,10 @@ class Reader():
 
 
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
+        """
+        Save image data from file as tiff.
+        Also ability to scale or invert brightness
+        """
         # takes  ~45ms currently for 696x520 (WITH numpy)
         # takes ~250ms currently for 696x520 (NO numpy)
         #print("save_img_as_tiff_sc START")
@@ -311,7 +269,8 @@ class Reader():
 
     def get_img_summary(self):
         """
-        Data Block 7 contains strings describing image:
+        Read from Data Block 7, containing strings describing image.
+        Return dict containing data.
 
         Scanner Name: ChemiDoc XRS
         Number of Pixels: (696 x 520)
@@ -371,209 +330,9 @@ class Reader():
         return (block_num, end_idx)
 
 
-    def _process_payload_type102(self, field_payload, field_ids=None):
-        if field_ids is None:
-            field_ids = {}
-        field_info_payload = {}
-
-        assert len(field_payload) == 16, \
-                "Field Type 102 should have length of 20"
-
-        uint16s = unpack_uint16(field_payload, endian="<")
-        uint32s = unpack_uint32(field_payload, endian="<")
-        ref_label = uint32s[3]
-        collection_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
-        collection_label = collection_label.decode('utf-8', 'ignore')
-
-        # number of items in this collection
-        field_info_payload['collection_num_items'] = uint16s[3]
-        # label for this collection
-        field_info_payload['collection_label'] = collection_label
-        # reference to next field type 101
-        field_info_payload['collection_ref'] = uint32s[2]
-
-        return field_info_payload
-
-    def _process_payload_type101(self, field_payload, field_ids=None):
-        if field_ids is None:
-            field_ids = {}
-        field_info_payload = {}
-        field_payload_items = {}
-
-        assert len(field_payload) % 20 == 0, \
-                "Field Type 101: payload size should be multiple of 20 bytes"
-
-        # every 20 bytes is a new Data Item
-        # each uint at bytes 8-11 + 20*N is a reference
-        # each uint at bytes 16-19 + 20*N is a reference
-        ditem_len = 20
-
-        num_data_items = len(field_payload)//ditem_len
-
-        uint16s = unpack_uint16(field_payload, endian="<")
-        uint32s = unpack_uint32(field_payload, endian="<")
-
-        for i in range(num_data_items):
-            u16start = i*(ditem_len//2)
-            u32start = i*(ditem_len//4)
-
-            ref_label = uint32s[u32start+4]
-            item_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
-            item_label = item_label.decode('utf-8', 'ignore')
-
-            data_field_type = uint16s[u16start]
-
-            assert field_payload_items.get(data_field_type, False) is False, \
-                    "Field Type 101: multiple entries, same data field type"
-
-            field_payload_items[data_field_type] = {}
-            field_payload_items[data_field_type]['num_regions'] = uint16s[u16start+3]
-            field_payload_items[data_field_type]['data_key_ref'] = uint32s[u32start+2]
-            field_payload_items[data_field_type]['total_bytes'] = uint32s[u32start+3]
-            field_payload_items[data_field_type]['label'] = item_label
-
-        field_info_payload['items'] = field_payload_items
-
-        return field_info_payload
-
-
-    def _process_payload_type100(self, field_payload, field_ids=None):
-        if field_ids is None:
-            field_ids = {}
-        field_info_payload = {}
-        field_payload_regions = {}
-
-        assert len(field_payload) % 36 == 0, \
-                "Field Type 100: payload size should be multiple of 36 bytes"
-
-        # every 36 bytes is a new Data Item
-        # each uint at bytes 12-15 + 36*N is a reference to Field Type 16
-        ditem_len = 36
-
-        num_data_items = len(field_payload)//ditem_len
-
-        uint16s = unpack_uint16(field_payload, endian="<")
-        uint32s = unpack_uint32(field_payload, endian="<")
-
-        for i in range(num_data_items):
-            u16start = i*(ditem_len//2)
-            u32start = i*(ditem_len//4)
-
-            ref_label = uint32s[u32start+3]
-            region_label = field_ids[ref_label]['payload'].rstrip(b"\x00")
-            region_label = region_label.decode('utf-8', 'ignore')
-
-            field_payload_regions[i] = {}
-            field_payload_regions[i]['data_type'] = uint16s[u16start]
-            field_payload_regions[i]['label'] = region_label
-            field_payload_regions[i]['index'] = uint16s[u16start+1]
-            field_payload_regions[i]['num_words'] = uint32s[u32start+1]
-            field_payload_regions[i]['byte_offset'] = uint32s[u32start+2]
-            field_payload_regions[i]['word_size'] = uint32s[u32start+5]
-            field_payload_regions[i]['ref_field_type'] = uint16s[u16start+13]
-
-        field_info_payload['regions'] = field_payload_regions
-
-        return field_info_payload
-
-
-    def _process_data_region(self, region, payload, field_ids, data_types):
-        region_data = {}
-        data_region_start = region['byte_offset']
-        data_region_end = region['byte_offset'] + \
-                region['word_size'] * region['num_words']
-        data_raw = payload[data_region_start:data_region_end]
-        region_data['raw'] = data_raw
-
-        data_proc = None
-        data_interp = None
-        data_type_str = None
-
-        if region['data_type'] in [1, 2]:
-            # byte / ASCII
-            if len(data_raw) > 1 and is_ascii(data_raw):
-                data_proc = data_raw.rstrip(b"\x00").decode('utf-8', 'ignore')
-                data_type_str = "ASCII"
-            else:
-                data_proc = unpack_uint8(data_raw)
-                data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-                data_type_str = "byte"
-        elif region['data_type'] in [3, 4]:
-            # u?int16
-            data_proc = unpack_uint16(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-            data_type_str = "uint16"
-        elif region['data_type'] in [5, 6, 9]:
-            # u?int32
-            data_proc = unpack_uint32(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-            if region['label'].endswith("time"):
-                # TODO: what time format?
-                data_interp = time.asctime(time.gmtime(data_proc))
-            data_type_str = "uint32"
-        elif region['data_type'] in [7,]:
-            # u?int64
-            data_proc = unpack_uint64(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-            data_type_str = "uint64"
-        elif region['data_type'] in [15, 17]:
-            # uint32 Reference
-            data_proc = unpack_uint32(data_raw, endian="<")
-            data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-            this_ref = data_proc
-            if this_ref != 0:
-                if field_ids[this_ref]['type'] == 16:
-                    region_str = field_ids[this_ref]['payload'][:-1]
-                    data_interp = region_str.decode("utf-8", "ignore")
-                else:
-                    field_info_ref = field_ids[this_ref]
-                    # recurse into the data container field referenced
-                    data_interp = self._process_payload_data_container(
-                            field_info_ref,
-                            data_types,
-                            field_ids
-                            )
-            else:
-                data_interp = None
-            data_type_str = "uint32 Reference"
-        else:
-            pass
-            # TODO: make generic data types work based on word_size?
-            #print("Data Type "+ repr(region['data_type']) + " is Unknown",
-            #        file=sys.stderr)
-            #print("  word_size: " + repr(region['word_size']))
-            #print("  num_words: " + repr(region['num_words']))
-
-        region_data['proc'] = data_proc
-        region_data['interp'] = data_interp
-        region_data['type'] = data_type_str
-        region_data['type_num'] = region['data_type']
-
-        return region_data
-
-
-    def _process_payload_data_container(self,
-            field_info, data_types, field_ids):
-        data_dict = {}
-        this_data_field = data_types[field_info['type']]
-        data_key = field_ids[this_data_field['data_key_ref']]['regions']
-
-        for dkey in data_key:
-            region = data_key[dkey]
-            region_data = self._process_data_region(
-                    region,
-                    field_info['payload'],
-                    field_ids,
-                    data_types
-                    )
-            data_dict[region['label']] = region_data
-
-        return data_dict
-
-
     def get_metadata(self):
         """
-        Fetch All Metadata in File
+        Fetch All Metadata in File, return hierarchical dict
         """
         field_ids = {}
         collections = {}
@@ -604,31 +363,32 @@ class Reader():
                 # skip to beginning of next data block
                 byte_idx = end_idx + 8
             elif field_info['type'] in [2, 16]:
-                # TODO: is type 2 ever useful?
+                # 2=NOP field
+                # 16=string field (will be referenced later by other fields)
                 pass
             elif field_info['type'] == 102:
                 # collection definition
                 data_types = {}
-                field_payload_info = self._process_payload_type102(
+                field_payload_info = process_payload_type102(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
                 collections[field_info['collection_label']] = {}
                 this_coll = collections[field_info['collection_label']]
             elif field_info['type'] == 101:
                 # collection items
-                field_payload_info = self._process_payload_type101(
+                field_payload_info = process_payload_type101(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
                 data_types = field_info['items']
             elif field_info['type'] == 100:
                 # data keys (data format)
-                field_payload_info = self._process_payload_type100(
+                field_payload_info = process_payload_type100(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
                 field_ids[field_info['id']] = field_info
             elif field_info['type'] in data_types:
                 # data containers
-                data_dict = self._process_payload_data_container(
+                data_dict = process_payload_data_container(
                         field_info,
                         data_types,
                         field_ids
@@ -730,6 +490,8 @@ class Reader():
             # break if we still aren't advancing
             if byte_idx == field_start:
                 raise Exception("Problem parsing file header")
+
+
 FILE_FORMAT_1SC = """
 1sc FILE FORMAT NOTES:
 --------
