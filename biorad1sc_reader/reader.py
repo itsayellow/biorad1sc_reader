@@ -28,11 +28,11 @@ else:
     HAS_NUMPY = True
 
 
-# for debugging (DELETEME)
-if HAS_NUMPY:
-    print("YES Numpy")
-else:
-    print("No Numpy")
+## for debugging
+#if HAS_NUMPY:
+#    print("YES Numpy")
+#else:
+#    print("No Numpy")
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
