@@ -4,7 +4,9 @@
 #import time
 import os.path
 import struct
-from biorad1sc_reader.errors import BioRadInvalidFileError
+from biorad1sc_reader.errors import (
+        BioRadInvalidFileError, BioRadParsingError
+        )
 from biorad1sc_reader.parsing import (
         unpack_string,
         unpack_uint16, unpack_uint32,
@@ -393,7 +395,7 @@ class Reader():
                         )
                 this_coll[data_types[field_info['type']]['label']] = data_dict
             else:
-                raise Exception(
+                raise BioRadParsingError(
                         "Unknown Field Type %d in Collection"%field_info['type']
                         )
 

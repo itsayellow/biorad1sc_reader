@@ -2,3 +2,6 @@
 
 class BioRadInvalidFileError(Exception):
     pass
+
+class BioRadParsingError(Exception):
+    pass
