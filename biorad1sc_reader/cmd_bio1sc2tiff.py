@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-#
-# Bare bones python template for parsing command-line arguments
+
+"""
+Command-line utility to save image data from Bio-Rad *.1sc file to
+16-bit TIFF file.
+"""
 
 import sys
 import os.path
 import argparse
 import biorad1sc_reader
+
 
 def process_command_line(argv):
     """
@@ -43,6 +47,7 @@ def process_command_line(argv):
 
     return args
 
+
 def main(argv=None):
     args = process_command_line(argv)
 
@@ -76,6 +81,7 @@ def main(argv=None):
 
     return 0
 
+
 def entry_point():
     """
     intended to be called as a command from entry_points in setup.py
@@ -89,7 +95,7 @@ def entry_point():
 
     return status
 
+
 if __name__ == "__main__":
     status = entry_point()
-
     sys.exit(status)
