@@ -5,7 +5,7 @@ Main reader module for Bio-Rad *.1sc files.  Includes public API class
 Reader.
 """
 
-#import sys
+import sys
 #import time
 import os.path
 import struct
@@ -337,12 +337,80 @@ class Reader():
         return (block_num, end_idx)
 
 
+    #collections = [
+    #        {
+    #            'label':<collection_name0>
+    #            'data':[
+    #                {
+    #                    'label':<item_data_type_name0>,
+    #                    'data':[
+    #                        {
+    #                            'label':<region_name0>,
+    #                            'data':{
+    #                                'raw':<data_raw>
+    #                                'proc':
+    #                                'interp':
+    #                                'type':
+    #                                'type_num':
+    #                                }
+    #                            },
+    #                        {
+    #                            'label':<region_name1>,
+    #                            'data':{
+    #                                'raw':<data_raw>
+    #                                'proc':
+    #                                'interp':
+    #                                'type':
+    #                                'type_num':
+    #                                }
+    #                            },
+    #                        ]
+    #                    },
+    #                {
+    #                    'label':<item_name1>
+    #                    'data':[
+    #                        {
+    #                            <region_name>:{
+    #                                'raw':<data_raw>,
+    #                                'proc':
+    #                                'interp':
+    #                                'type':
+    #                                'type_num':
+    #                                }
+    #                            },
+    #                        ]
+    #                    },
+    #                ]
+    #            },
+    #        {
+    #            'label':<collection_name1>
+    #            'data':[
+    #                {
+    #                    'label':<item_data_type_name0>
+    #                    'data':[
+    #                        {
+    #                            'label':<region_name0>,
+    #                            'data':{
+    #                                'raw':<data_raw>,
+    #                                'proc':
+    #                                'interp':
+    #                                'type':
+    #                                'type_num':
+    #                                }
+    #                            },
+    #                        ]
+    #                    },
+    #                ]
+    #            },
+    #        ]
+
+
     def get_metadata(self):
         """
         Fetch All Metadata in File, return hierarchical dict
         """
         field_ids = {}
-        collections = {}
+        collections = []
 
         # start at first field of Data Block 0, get all ids
         byte_idx = self.data_start[0] + 8
@@ -358,6 +426,7 @@ class Reader():
 
         # start at first field of Data Block 0, process hierarchical
         #   metadata
+        visited_ids = []
         byte_idx = self.data_start[0] + 8
         while byte_idx < self.data_start[10]:
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
@@ -377,8 +446,9 @@ class Reader():
                 field_payload_info = process_payload_type102(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
-                collections[field_info['collection_label']] = {}
-                this_coll = collections[field_info['collection_label']]
+                collections.append({'label':field_info['collection_label']})
+                collections[-1]['data'] = []
+                this_coll = collections[-1]['data']
             elif field_info['type'] == 101:
                 # collection items
                 field_payload_info = process_payload_type101(
@@ -393,12 +463,23 @@ class Reader():
                 field_ids[field_info['id']] = field_info
             elif field_info['type'] in data_types:
                 # data containers
-                data_dict = process_payload_data_container(
-                        field_info,
-                        data_types,
-                        field_ids
-                        )
-                this_coll[data_types[field_info['type']]['label']] = data_dict
+                if field_info['id'] not in visited_ids:
+                    # if this ID was visited by hierarchical Reference, we don't
+                    #   need to report it on its own at top-level
+                    regions_list = process_payload_data_container(
+                            field_info,
+                            data_types,
+                            field_ids,
+                            visited_ids
+                            )
+                    this_coll.append({})
+                    this_coll[-1]['data'] = regions_list
+                    this_coll[-1]['label'] = data_types[field_info['type']]['label']
+                else:
+                    pass
+                    #print("VISITED!", file=sys.stderr)
+                    #print("    Field ID: " + repr(field_info['id']), file=sys.stderr)
+                    #print("    Field Type: " + repr(field_info['type']), file=sys.stderr)
             else:
                 raise BioRadParsingError(
                         "Unknown Field Type %d in Collection"%field_info['type']

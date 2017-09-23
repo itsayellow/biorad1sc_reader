@@ -5,6 +5,7 @@ Low-level routines to parse a Bio-Rad *.1sc file.  Intended to be
 used internally only.
 """
 
+import sys
 import time
 import struct
 
@@ -181,7 +182,7 @@ def process_payload_type100(field_payload, field_ids=None):
     return field_info_payload
 
 
-def process_data_region(region, payload, field_ids, data_types):
+def process_data_region(region, payload, field_ids, data_types, visited):
     """
     Process one region of one data container field.
     """
@@ -196,18 +197,32 @@ def process_data_region(region, payload, field_ids, data_types):
     #    9:"uint32",
     #    15:"uint32 Reference",
     #    17:"uint32 Reference",
-    #    131:"12-byte??",
-    #    1001:"8- or 24-byte??",
-    #    1002:"24-byte??",
-    #    1003:"8-byte (x,y)??",
-    #    1004:"8- or 16-byte (x1,y1,x2,y2)??",
-    #    1005:"64-byte??",
-    #    1006:"640-byte??",
-    #    1010:"144-byte??",
-    #    1016:"440-byte??",
-    #    1020:"32-byte??",
+    #
+    #    01100100 = 100:"8-byte?"
+    #    01100110 = 102:"16-byte?"
+    #    01100111 = 103:"8-byte?"
+    #    01101011 = 107:"8-byte?"
+    #    01101110 = 110:"8-byte?"
+    #    01110011 = 115:"4-byte?"
+    #    01111000 = 120:"8-byte?"
+    #    10000011 = 131:"12-byte??",
+    #    11_11101001 = 1001:"8- or 24-byte??",
+    #    11_11101010 = 1002:"24-byte??",
+    #    11_11101011 = 1003:"8- or 16-byte (x,y)??",
+    #    11_11101100 = 1004:"8- or 16-byte (x1,y1,x2,y2)??",
+    #    11_11101101 = 1005:"64-byte??",
+    #    11_11101110 = 1006:"12- or 640-byte??",
+    #    11_11110010 = 1010:"144-byte??",
+    #    11_11110011 = 1011:"8-byte??",
+    #    11_11110100 = 1012:"16-byte??",
+    #    11_11111000 = 1016:"440-byte??",
+    #    11_11111011 = 1019:"8-byte??",
+    #    11_11111100 = 1020:"32-byte??",
+    #    11_11111111 = 1023:"24-byte??",
     #    1027:"8-byte??",
     #    1032:"12-byte??",
+    #    1036:"8-byte??",
+    #    1048:"40-byte??",
 
     region_data = {}
     data_region_start = region['byte_offset']
@@ -259,11 +274,16 @@ def process_data_region(region, payload, field_ids, data_types):
             else:
                 field_info_ref = field_ids[this_ref]
                 # recurse into the data container field referenced
+                print("Recursing into:", file=sys.stderr)
+                print("    Field ID: " + repr(field_info_ref['id']), file=sys.stderr)
+                print("    Field Type: " + repr(field_info_ref['type']), file=sys.stderr)
                 data_interp = process_payload_data_container(
                         field_info_ref,
                         data_types,
-                        field_ids
+                        field_ids,
+                        visited
                         )
+                visited.append(field_info_ref['id'])
         else:
             data_interp = None
         data_type_str = "uint32 Reference"
@@ -284,12 +304,12 @@ def process_data_region(region, payload, field_ids, data_types):
 
 
 def process_payload_data_container(
-        field_info, data_types, field_ids):
+        field_info, data_types, field_ids, visited_ids):
     """
     Process the payload of a 1sc Field Type > 102, (a data container field,)
     returning the relevant data to a dict.
     """
-    data_dict = {}
+    regions_list = []
     this_data_field = data_types[field_info['type']]
     data_key = field_ids[this_data_field['data_key_ref']]['regions']
 
@@ -299,8 +319,11 @@ def process_payload_data_container(
                 region,
                 field_info['payload'],
                 field_ids,
-                data_types
+                data_types,
+                visited_ids
                 )
-        data_dict[region['label']] = region_data
+        regions_list.append({})
+        regions_list[-1]['label'] = region['label']
+        regions_list[-1]['data'] = region_data
 
-    return data_dict
+    return regions_list
