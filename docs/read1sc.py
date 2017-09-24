@@ -372,7 +372,7 @@ def read_field(in_bytes, byte_idx, field_ids=None,
         pass
 
     # report the following payloads if not quiet
-    if not quiet:
+    if not quiet and field_type not in [100, 101, 102]:
         print("Field Payload:", file=file)
 
         if field_type == 0:
@@ -421,6 +421,9 @@ def read_field(in_bytes, byte_idx, field_ids=None,
         elif field_type == 1040:
             process_payload_generic_refs_data(field_payload, field_ids=field_ids,
                     file=file)
+        elif field_type in [100, 101, 102]:
+            # we've already taken care of these fields in previous if field_type
+            pass
         else:
             process_payload_generic(field_payload, file=file)
 
@@ -991,7 +994,7 @@ def print_datablock(in_bytes, data_start, data_len, block_num, field_ids=None,
     if field_ids is None:
         field_ids = {}
 
-    print("="*78, file=file)
+    print("="*79, file=file)
     print("DATA BLOCK %s"%block_num, file=file)
     print("Start: %d"%(data_start), file=file)
     print("End:   %d"%(data_start + data_len), file=file)
@@ -1074,7 +1077,7 @@ def process_file_header(in_bytes, file=sys.stdout):
         (byte_idx, field_info) = read_field(
                 in_bytes, byte_idx, file=file)
 
-    print("-"*78, file=file)
+    print("-"*79, file=file)
     print("byte_idx: %d-%d"%(byte_idx,data_start0-1),file=file)
     print(file=file)
     print("All Zeros",file=file)
