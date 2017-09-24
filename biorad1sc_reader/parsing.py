@@ -327,10 +327,6 @@ def process_payload_data_container(
     assert payload_len % data_key_len == 0, \
             "Payload Length is not a multiple of Data Key description"
 
-    if data_key_len != payload_len:
-        print("WARNING: Field Type %d @ %d"%(field_info['type'], field_info['start']))
-        print("  Payload length: %d"%payload_len)
-        print("  Field 101 specified total bytes: %d"%data_key_len)
     for i in range(data_key_multiple):
         for dkey in data_key:
             region = data_key[dkey]
