@@ -182,7 +182,7 @@ def process_payload_type100(field_payload, field_ids=None):
     return field_info_payload
 
 
-def process_data_region(region, payload, field_ids, data_types, visited):
+def process_data_region(region, payload, field_ids, data_types, visited_ids):
     """
     Process one region of one data container field.
     """
@@ -274,16 +274,17 @@ def process_data_region(region, payload, field_ids, data_types, visited):
             else:
                 field_info_ref = field_ids[this_ref]
                 # recurse into the data container field referenced
-                print("Recursing into:", file=sys.stderr)
-                print("    Field ID: " + repr(field_info_ref['id']), file=sys.stderr)
-                print("    Field Type: " + repr(field_info_ref['type']), file=sys.stderr)
+                #print("Recursing into:", file=sys.stderr)
+                #print("    Field ID: " + repr(field_info_ref['id']), file=sys.stderr)
+                #print("    Field Type: " + repr(field_info_ref['type']), file=sys.stderr)
                 data_interp = process_payload_data_container(
                         field_info_ref,
                         data_types,
                         field_ids,
-                        visited
+                        visited_ids
                         )
-                visited.append(field_info_ref['id'])
+                region_data['ref_type'] = field_info_ref['type']
+                visited_ids.append(field_info_ref['id'])
         else:
             data_interp = None
         data_type_str = "uint32 Reference"
@@ -312,18 +313,36 @@ def process_payload_data_container(
     regions_list = []
     this_data_field = data_types[field_info['type']]
     data_key = field_ids[this_data_field['data_key_ref']]['regions']
+    payload_len = len(field_info['payload'])
+    data_key_len = this_data_field['total_bytes']
 
-    for dkey in data_key:
-        region = data_key[dkey]
-        region_data = process_data_region(
-                region,
-                field_info['payload'],
-                field_ids,
-                data_types,
-                visited_ids
-                )
-        regions_list.append({})
-        regions_list[-1]['label'] = region['label']
-        regions_list[-1]['data'] = region_data
+    # Sometimes Field 101 specifies total bytes in regions that is less
+    #   than eventual data container field.
+    # In this case, data container field has a multiple of total bytes
+    #   specified in the data key, and one must repeatedly go through
+    #   the regions specified in the data key until the entire payload
+    #   of the data container field is processed.
+
+    data_key_multiple = payload_len // data_key_len
+    assert payload_len % data_key_len == 0, \
+            "Payload Length is not a multiple of Data Key description"
+
+    if data_key_len != payload_len:
+        print("WARNING: Field Type %d @ %d"%(field_info['type'], field_info['start']))
+        print("  Payload length: %d"%payload_len)
+        print("  Field 101 specified total bytes: %d"%data_key_len)
+    for i in range(data_key_multiple):
+        for dkey in data_key:
+            region = data_key[dkey]
+            region_data = process_data_region(
+                    region,
+                    field_info['payload'][i*data_key_len:(i+1)*data_key_len],
+                    field_ids,
+                    data_types,
+                    visited_ids
+                    )
+            regions_list.append({})
+            regions_list[-1]['label'] = region['label']
+            regions_list[-1]['data'] = region_data
 
     return regions_list

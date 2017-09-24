@@ -475,6 +475,8 @@ class Reader():
                     this_coll.append({})
                     this_coll[-1]['data'] = regions_list
                     this_coll[-1]['label'] = data_types[field_info['type']]['label']
+                    this_coll[-1]['id'] = field_info['id']
+                    this_coll[-1]['type'] = field_info['type']
                 else:
                     pass
                     #print("VISITED!", file=sys.stderr)
