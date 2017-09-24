@@ -317,8 +317,8 @@ def process_payload_data_container(
     data_key_len = this_data_field['total_bytes']
 
     # Sometimes Field 101 specifies total bytes in regions that is less
-    #   than eventual data container field.
-    # In this case, data container field has a multiple of total bytes
+    #   than eventual data container field payload size.
+    # In this case, data container field payload has a multiple of total bytes
     #   specified in the data key, and one must repeatedly go through
     #   the regions specified in the data key until the entire payload
     #   of the data container field is processed.
