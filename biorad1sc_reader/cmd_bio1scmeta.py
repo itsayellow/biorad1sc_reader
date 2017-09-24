@@ -5,6 +5,7 @@ Command-line utility to report all metadata contained in a Bio-Rad *.1sc file
 """
 
 import sys
+import pprint
 import os.path
 import argparse
 import biorad1sc_reader
@@ -31,6 +32,9 @@ def process_command_line(argv):
             )
 
     # switches/options:
+    parser.add_argument(
+        '-a', '--all_output', action='store_true',
+        help='Output full dump of metadata data structure as well.')
     parser.add_argument(
         '-o', '--output_filename', action='store',
         help='Name of output text file. (Defaults to stdout')
@@ -61,16 +65,21 @@ def print_raw_data(data_raw, tab, file):
 def recurse_report(coll_item, tablevel, file):
     tab = " "*4*tablevel
     for region in coll_item:
-        print(tab + "Region: %s (%s)"%(region['label'], region['data']['type']),
+        print(tab + "Region: %s"%(region['label']),
                 file=file)
         data_raw = region['data']['raw']
         data_proc = region['data']['proc']
         data_interp = region['data']['interp']
-        print(tab + " data_type_num: " + repr(region['data']['type_num']),
-                file=file)
+        print(tab + " data_type: %d "%(region['data']['type_num'],),
+                end="", file=file)
+        if region['data']['type'] is not None:
+            print("(%s)"%(region['data']['type']), file=file)
+        else:
+            print("", file=file)
         if data_proc is not None:
             print(tab + " data_proc: " + repr(data_proc), file=file)
         if type(data_interp) is list:
+            print(tab + " data_interp: (Reference, Field Type %d)"%(region['data']['ref_type']), file=file)
             # reference to another data structure, recurse
             recurse_report(data_interp, tablevel+1, file)
         elif data_interp is not None:
@@ -107,11 +116,19 @@ def main(argv=None):
         bio1sc_reader = biorad1sc_reader.Reader(srcfilename)
 
         file_metadata = bio1sc_reader.get_metadata()
+
+        if args.all_output:
+            # print out full data structure if -a or --all_output
+            pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
+            pp.pprint(file_metadata)
+
         for collection in file_metadata:
             print("\nCollection: %s"%collection['label'], file=out_fh)
             coll = collection['data']
             for item in coll:
                 print(" "*4 + "Item: %s"%item['label'], file=out_fh)
+                print(" "*4 + " Field Type: %s"%item['type'], file=out_fh)
+                print(" "*4 + " Field ID: %s"%item['id'], file=out_fh)
                 coll_item = item['data']
                 recurse_report(coll_item, 2, out_fh)
 
