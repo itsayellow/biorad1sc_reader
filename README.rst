@@ -22,8 +22,8 @@ Current Status
     * API subject to change
     * No known problems in operation.
 * Installs command-line executables
-    * bio1sc2tiff (type 'bio1sc2tiff --help')
-    * bio1scmeta (type 'bio1scmeta --help')
+    * bio1sc2tiff (type ``bio1sc2tiff --help``)
+    * bio1scmeta (type ``bio1scmeta --help``)
 * Reading Image Data OK
 * Saving Image from file to new TIFF file OK
     * Reader.save_img_as_tiff()
