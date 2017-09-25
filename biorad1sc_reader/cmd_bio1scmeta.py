@@ -11,6 +11,15 @@ import argparse
 import biorad1sc_reader
 
 
+# Verbosity:
+#   0: as compact representation of metadata as possible, null references
+#       are omitted
+#   1: Some more details.
+#       No full data structure from biorad1sc_reader
+#   2: Every detail about metadata, even the pretty-printed full data structure
+#       from biorad1sc_reader
+
+
 def process_command_line(argv):
     """
     Return args struct
@@ -65,35 +74,40 @@ def print_raw_data(data_raw, tab, label_len, file):
 def recurse_report(coll_item, tablevel, file, verbosity):
     tab = " "*4*tablevel
     for region in coll_item:
-        data_raw = region['data']['raw']
         data_proc = region['data']['proc']
         data_interp = region['data']['interp']
-        data_type = region['data']['type']
 
         if verbosity == 0:
-            print(tab + "%s: "%(region['label']), end="", file=file)
+            pass
         elif verbosity in [1, 2]:
             print(tab + "Region: %s"%(region['label']), file=file)
             print(tab + " data_type: %d "%(region['data']['type_num'],),
                     end="", file=file)
             if region['data']['type'] is not None:
-                print("(%s)"%(data_type), file=file)
+                print("(%s)"%(region['data']['type']), file=file)
             else:
                 print("", file=file)
 
         if verbosity == 0:
             if data_interp is not None:
+                print(tab + "%s: "%(region['label']), end="", file=file)
                 if type(data_interp) is list:
                     print("", file=file)
                     # reference to another data structure, recurse
                     recurse_report(data_interp, tablevel+1, file, verbosity)
                 else:
                     print("%s"%(repr(data_interp)), file=file)
+            elif data_interp is None and region['data']['type_num'] in [15, 17]:
+                # data_interp is None with Reference type, means missing
+                #   reference, skip
+                pass
             elif data_proc is not None:
+                print(tab + "%s: "%(region['label']), end="", file=file)
                 print("%s"%(repr(data_proc)), file=file)
             else:
-                print_raw_data(data_raw, tab, 2 + len(region['label']),
-                        file=file)
+                print(tab + "%s: "%(region['label']), end="", file=file)
+                print_raw_data(region['data']['raw'], tab,
+                        2 + len(region['label']), file=file)
         elif verbosity in [1, 2]:
             if data_proc is not None:
                 print(tab + " data_proc: " + repr(data_proc), file=file)
@@ -108,7 +122,8 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                 pass
             if data_proc is None and data_interp is None:
                 print(tab + " data_raw: ", end="", file=file)
-                print_raw_data(data_raw, tab, len(' data_raw: '), file=file)
+                print_raw_data(region['data']['raw'], tab, len(' data_raw: '),
+                        file=file)
 
 
 def report(file_metadata, out_fh, verbosity):
