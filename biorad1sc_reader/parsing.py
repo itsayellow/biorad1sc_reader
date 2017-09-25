@@ -254,7 +254,6 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
         data_proc = unpack_uint32(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
         if region['label'].endswith("time"):
-            # TODO: what time format?
             data_interp = time.asctime(time.gmtime(data_proc)) + " UTC"
         data_type_str = "uint32"
     elif region['data_type'] in [7,]:
@@ -274,9 +273,6 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
             else:
                 field_info_ref = field_ids[this_ref]
                 # recurse into the data container field referenced
-                #print("Recursing into:", file=sys.stderr)
-                #print("    Field ID: " + repr(field_info_ref['id']), file=sys.stderr)
-                #print("    Field Type: " + repr(field_info_ref['type']), file=sys.stderr)
                 data_interp = process_payload_data_container(
                         field_info_ref,
                         data_types,
