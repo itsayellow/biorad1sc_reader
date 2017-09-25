@@ -255,7 +255,7 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
         if region['label'].endswith("time"):
             # TODO: what time format?
-            data_interp = time.asctime(time.gmtime(data_proc))
+            data_interp = time.asctime(time.gmtime(data_proc)) + " UTC"
         data_type_str = "uint32"
     elif region['data_type'] in [7,]:
         # u?int64
