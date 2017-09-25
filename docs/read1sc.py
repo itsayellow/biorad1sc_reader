@@ -1192,7 +1192,7 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids,
     print(file=out_fh)
 
 
-def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
+def report_field_type_hier(in_bytes, field_info, field_ids, data_field_types,
         file, indent):
     tab = " "*4*indent
     field_start = field_info['start']
@@ -1275,7 +1275,7 @@ def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
                         print(tab + "Data       : "+region_str, file=file)
                     else:
                         field_info = field_ids[this_ref]
-                        report_field_type_hier2(
+                        report_field_type_hier(
                                 in_bytes,
                                 field_info,
                                 field_ids,
@@ -1293,12 +1293,12 @@ def report_field_type_hier2(in_bytes, field_info, field_ids, data_field_types,
         print("    Field Type: %4d NOT IN COLLECTION", file=file)
 
 
-def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
+def report_hierarchy(in_bytes, data_start, data_len, field_ids,
         is_referenced, filedir, filename, report_strings=True):
     try:
         out_fh = open(os.path.join(filedir, "hierarchy.txt"), "w")
     except:
-        print("Error opening hierarchy2.txt")
+        print("Error opening hierarchy.txt")
 
     print(filename, file=out_fh)
 
@@ -1333,7 +1333,7 @@ def report_hierarchy2(in_bytes, data_start, data_len, field_ids,
             data_field_types = field_info['items']
 
         if field_info['type'] > 102:
-            report_field_type_hier2(
+            report_field_type_hier(
                     in_bytes,
                     field_info,
                     field_ids,
@@ -1452,8 +1452,8 @@ def parse_file(filename, report_strings=True):
 
     # PASS 4
     #   report on hierarchy
-    print("    Pass 4: Reporting hierarchical data to hierarchy2.txt", file=sys.stderr)
-    report_hierarchy2(in_bytes, data_start, data_len, field_ids,
+    print("    Pass 4: Reporting hierarchical data to hierarchy.txt", file=sys.stderr)
+    report_hierarchy(in_bytes, data_start, data_len, field_ids,
             is_referenced, filedir, filename, report_strings=report_strings)
 
 
