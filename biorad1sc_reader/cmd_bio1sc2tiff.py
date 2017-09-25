@@ -57,14 +57,14 @@ def main(argv=None):
         return 1
  
     for srcfilename in args.src_1sc_file:
-        print(srcfilename)
+        print(srcfilename, file=sys.stderr)
         if args.output_filename:
             outfilename = args.output_filename
         else:
             (rootfile,_)=os.path.splitext(srcfilename)
             outfilename = rootfile+".tif"
 
-        print("    -> "+outfilename)
+        print("    -> "+outfilename, file=sys.stderr)
         # open reader instance and read in file
         bio1sc_reader = biorad1sc_reader.Reader(srcfilename)
 
