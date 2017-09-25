@@ -33,8 +33,8 @@ def process_command_line(argv):
 
     # switches/options:
     parser.add_argument(
-        '-a', '--all_output', action='store_true',
-        help='Output full dump of metadata data structure as well.')
+        '-v', '--verbosity', action='store', default=0, type=int,
+        help='Verbosity of report, number from 0 to 2 (default 0).')
     parser.add_argument(
         '-o', '--output_filename', action='store',
         help='Name of output text file. (Defaults to stdout')
@@ -45,49 +45,104 @@ def process_command_line(argv):
     return args
 
 
-def print_raw_data(data_raw, tab, file):
-    same_line_chars_avail = 80 - len(tab + " data_raw: ")
+def print_raw_data(data_raw, tab, label_len, file):
+    same_line_chars_avail = 80 - len(tab) - label_len
     if len(data_raw)*5 < same_line_chars_avail:
         data_str = ["0x{0:02x}".format(byte) for byte in data_raw]
         data_str = " ".join(data_str).rstrip()
-        print(tab + " data_raw: " + data_str)
+        print(data_str, file=file)
     else:
         own_line_chars_avail =  80 - len(tab) - 2
         bytes_per_line = own_line_chars_avail // 5
         bytes_per_line = bytes_per_line // 4 * 4
-        print(tab + " data_raw: ", file=file)
+        print("", file=file)
         for i in range(0, len(data_raw), bytes_per_line):
             data_str = ["0x{0:02x}".format(byte) for byte in data_raw[i:i+bytes_per_line]]
             data_str = " ".join(data_str).rstrip()
-            print(tab + "  " + data_str)
+            print(tab + "  " + data_str, file=file)
 
 
-def recurse_report(coll_item, tablevel, file):
+def recurse_report(coll_item, tablevel, file, verbosity):
     tab = " "*4*tablevel
     for region in coll_item:
-        print(tab + "Region: %s"%(region['label']),
-                file=file)
         data_raw = region['data']['raw']
         data_proc = region['data']['proc']
         data_interp = region['data']['interp']
-        print(tab + " data_type: %d "%(region['data']['type_num'],),
-                end="", file=file)
-        if region['data']['type'] is not None:
-            print("(%s)"%(region['data']['type']), file=file)
-        else:
-            print("", file=file)
-        if data_proc is not None:
-            print(tab + " data_proc: " + repr(data_proc), file=file)
-        if type(data_interp) is list:
-            print(tab + " data_interp: (Reference, Field Type %d)"%(region['data']['ref_type']), file=file)
-            # reference to another data structure, recurse
-            recurse_report(data_interp, tablevel+1, file)
-        elif data_interp is not None:
-            print(tab + " data_interp: " + repr(data_interp), file=file)
-        else:
-            pass
-        if data_proc is None and data_interp is None:
-            print_raw_data(data_raw, tab, file=file)
+        data_type = region['data']['type']
+
+        if verbosity == 0:
+            print(tab + "%s: "%(region['label']), end="", file=file)
+        elif verbosity in [1, 2]:
+            print(tab + "Region: %s"%(region['label']), file=file)
+            print(tab + " data_type: %d "%(region['data']['type_num'],),
+                    end="", file=file)
+            if region['data']['type'] is not None:
+                print("(%s)"%(data_type), file=file)
+            else:
+                print("", file=file)
+
+        if verbosity == 0:
+            if data_interp is not None:
+                if type(data_interp) is list:
+                    print("", file=file)
+                    # reference to another data structure, recurse
+                    recurse_report(data_interp, tablevel+1, file, verbosity)
+                else:
+                    print("%s"%(repr(data_interp)), file=file)
+            elif data_proc is not None:
+                print("%s"%(repr(data_proc)), file=file)
+            else:
+                print_raw_data(data_raw, tab, 2 + len(region['label']),
+                        file=file)
+        elif verbosity in [1, 2]:
+            if data_proc is not None:
+                print(tab + " data_proc: " + repr(data_proc), file=file)
+            if type(data_interp) is list:
+                print(tab + " data_interp: (Reference, Field Type " +
+                        "%d)"%(region['data']['ref_type']), file=file)
+                # reference to another data structure, recurse
+                recurse_report(data_interp, tablevel+1, file, verbosity)
+            elif data_interp is not None:
+                print(tab + " data_interp: " + repr(data_interp), file=file)
+            else:
+                pass
+            if data_proc is None and data_interp is None:
+                print(tab + " data_raw: ", end="", file=file)
+                print_raw_data(data_raw, tab, len(' data_raw: '), file=file)
+
+
+def report(file_metadata, out_fh, verbosity):
+    if verbosity > 1:
+        # print out full data structure if -a or --all_output
+        pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
+        pp.pprint(file_metadata)
+
+    for collection in file_metadata:
+        if verbosity == 0:
+            print("\n%s"%collection['label'], file=out_fh)
+        elif verbosity == 1:
+            print("\nCollection: %s"%collection['label'], file=out_fh)
+        elif verbosity == 2:
+            print("\nCollection: %s"%collection['label'], file=out_fh)
+
+        coll = collection['data']
+
+        for item in coll:
+            if verbosity == 0:
+                print(" "*4 + "%s"%item['label'], file=out_fh)
+            elif verbosity == 1:
+                print(" "*4 + "Item: %s"%item['label'], file=out_fh)
+                print(" "*4 + " Field Type: %s"%item['type'], file=out_fh)
+                print(" "*4 + " Field ID: %s"%item['id'], file=out_fh)
+            elif verbosity == 2:
+                print(" "*4 + "Item: %s"%item['label'], file=out_fh)
+                print(" "*4 + " Field Type: %s"%item['type'], file=out_fh)
+                print(" "*4 + " Field ID: %s"%item['id'], file=out_fh)
+
+            coll_item = item['data']
+            recurse_report(coll_item, 2, out_fh, verbosity)
+
+    out_fh.close()
 
 
 def main(argv=None):
@@ -117,22 +172,8 @@ def main(argv=None):
 
         file_metadata = bio1sc_reader.get_metadata()
 
-        if args.all_output:
-            # print out full data structure if -a or --all_output
-            pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
-            pp.pprint(file_metadata)
+        report(file_metadata, out_fh, args.verbosity)
 
-        for collection in file_metadata:
-            print("\nCollection: %s"%collection['label'], file=out_fh)
-            coll = collection['data']
-            for item in coll:
-                print(" "*4 + "Item: %s"%item['label'], file=out_fh)
-                print(" "*4 + " Field Type: %s"%item['type'], file=out_fh)
-                print(" "*4 + " Field ID: %s"%item['id'], file=out_fh)
-                coll_item = item['data']
-                recurse_report(coll_item, 2, out_fh)
-
-        out_fh.close()
 
     return 0
 
