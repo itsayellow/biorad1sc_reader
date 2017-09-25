@@ -46,7 +46,7 @@ def process_command_line(argv):
         help='Verbosity of report, number from 0 to 2 (default 0).')
     parser.add_argument(
         '-o', '--output_filename', action='store',
-        help='Name of output text file. (Defaults to stdout')
+        help='Name of output text file. (Defaults to <filename>_meta.txt)')
 
     #(settings, args) = parser.parse_args(argv)
     args = parser.parse_args(argv)
@@ -171,15 +171,16 @@ def main(argv=None):
     for srcfilename in args.src_1sc_file:
         print(srcfilename, file=sys.stderr)
         if args.output_filename:
-            try:
-                outfilename = args.output_filename
-                out_fh = open(outfilename, 'w')
-            except:
-                print("Can't write to " + outfilename, file=sys.stderr)
-                return 1
+            outfilename = args.output_filename
         else:
-            outfilename = "stdout"
-            out_fh = sys.stdout
+            (rootfile,_)=os.path.splitext(srcfilename)
+            outfilename = rootfile+"_meta.txt"
+
+        try:
+            out_fh = open(outfilename, 'w')
+        except:
+            print("Can't write to " + outfilename, file=sys.stderr)
+            return 1
 
         print("    -> "+outfilename, file=sys.stderr)
         # open reader instance and read in file
