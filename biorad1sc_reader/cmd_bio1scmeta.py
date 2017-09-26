@@ -104,39 +104,39 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                         2 + len(region['label']), file=file)
         elif verbosity ==1:
             print(tab + "Region: %s"%(region['label']), file=file)
-            print(tab + " data_type: %s"%(dtype_str), file=file)
+            print(tab + " Data Type   : %s"%(dtype_str), file=file)
             if data_proc is None and data_interp is None:
-                print(tab + " data_raw: ", end="", file=file)
-                print_raw_data(region['data']['raw'], tab, len(' data_raw: '),
+                print(tab + " Data (raw)  : ", end="", file=file)
+                print_raw_data(region['data']['raw'], tab, len(' Data (raw) : '),
                         file=file)
             if data_proc is not None:
-                print(tab + " data_proc: " + repr(data_proc), file=file)
+                print(tab + " Data        : " + repr(data_proc), file=file)
             if type(data_interp) is dict:
-                print(tab + " data_interp: (Reference, Field Type " +
+                print(tab + " Data (intrp): (Reference, Field Type " +
                         "%d)"%(data_interp['type']), file=file)
                 # reference to another data structure, recurse
                 recurse_report(data_interp['data'], tablevel+1, file, verbosity)
             elif data_interp is not None:
-                print(tab + " data_interp: " + repr(data_interp), file=file)
+                print(tab + " Data (intrp): " + repr(data_interp), file=file)
         elif verbosity ==2:
             print(tab + "Region: %s"%(region['label']), file=file)
-            print(tab + " data_type   : %s"%(dtype_str), file=file)
-            print(tab + " region_index: %d"%(region['region_idx']), file=file)
-            print(tab + " word_size   : %d"%(region['word_size']), file=file)
-            print(tab + " num_words   : %d"%(region['num_words']), file=file)
-            print(tab + " data_raw    : ", end="", file=file)
-            print_raw_data(region['data']['raw'], tab, len(' data_raw   : '),
+            print(tab + " Data Type   : %s"%(dtype_str), file=file)
+            print(tab + " Region Index: %d"%(region['region_idx']), file=file)
+            print(tab + " Word Size   : %d"%(region['word_size']), file=file)
+            print(tab + " Num. Words  : %d"%(region['num_words']), file=file)
+            print(tab + " Data (raw)  : ", end="", file=file)
+            print_raw_data(region['data']['raw'], tab, len(' Data raw   : '),
                     file=file)
             if data_proc is not None:
-                print(tab + " data_proc   : " + repr(data_proc), file=file)
+                print(tab + " Data        : " + repr(data_proc), file=file)
 
             if type(data_interp) is dict:
-                print(tab + " data_interp: (Reference, Field Type " +
+                print(tab + " Data (intrp): (Reference, Field Type " +
                         "%d)"%(data_interp['type']), file=file)
                 # reference to another data structure, recurse
                 recurse_report(data_interp['data'], tablevel+1, file, verbosity)
             elif data_interp is not None:
-                print(tab + " data_interp: " + repr(data_interp), file=file)
+                print(tab + " Data (intrp): " + repr(data_interp), file=file)
 
 
 def report(file_metadata, out_fh, verbosity):
