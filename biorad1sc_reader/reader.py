@@ -10,29 +10,23 @@ import sys
 import os.path
 import struct
 #import tictoc
-from biorad1sc_reader.errors import (
-        BioRadInvalidFileError, BioRadParsingError
-        )
+from PIL import Image
 from biorad1sc_reader.parsing import (
         unpack_string,
         unpack_uint16, unpack_uint32,
         process_payload_type102, process_payload_type101,
         process_payload_type100, process_payload_data_container
         )
-from PIL import Image
+from biorad1sc_reader.errors import (
+        BioRadInvalidFileError, BioRadParsingError
+        )
+from biorad1sc_reader.constants import BLOCK_PTR_TYPES
 try:
     import numpy as np
 except ModuleNotFoundError:
     HAS_NUMPY = False
 else:
     HAS_NUMPY = True
-
-
-## for debugging
-#if HAS_NUMPY:
-#    print("YES Numpy")
-#else:
-#    print("No Numpy")
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
@@ -337,74 +331,6 @@ class Reader():
         return (block_num, end_idx)
 
 
-    #collections = [
-    #        {
-    #            'label':<collection_name0>
-    #            'data':[
-    #                {
-    #                    'label':<item_data_type_name0>,
-    #                    'data':[
-    #                        {
-    #                            'label':<region_name0>,
-    #                            'data':{
-    #                                'raw':<data_raw>
-    #                                'proc':
-    #                                'interp':
-    #                                'type':
-    #                                'type_num':
-    #                                }
-    #                            },
-    #                        {
-    #                            'label':<region_name1>,
-    #                            'data':{
-    #                                'raw':<data_raw>
-    #                                'proc':
-    #                                'interp':
-    #                                'type':
-    #                                'type_num':
-    #                                }
-    #                            },
-    #                        ]
-    #                    },
-    #                {
-    #                    'label':<item_name1>
-    #                    'data':[
-    #                        {
-    #                            <region_name>:{
-    #                                'raw':<data_raw>,
-    #                                'proc':
-    #                                'interp':
-    #                                'type':
-    #                                'type_num':
-    #                                }
-    #                            },
-    #                        ]
-    #                    },
-    #                ]
-    #            },
-    #        {
-    #            'label':<collection_name1>
-    #            'data':[
-    #                {
-    #                    'label':<item_data_type_name0>
-    #                    'data':[
-    #                        {
-    #                            'label':<region_name0>,
-    #                            'data':{
-    #                                'raw':<data_raw>,
-    #                                'proc':
-    #                                'interp':
-    #                                'type':
-    #                                'type_num':
-    #                                }
-    #                            },
-    #                        ]
-    #                    },
-    #                ]
-    #            },
-    #        ]
-
-
     def get_metadata(self):
         """
         Fetch All Metadata in File, return hierarchical dict
@@ -562,11 +488,8 @@ class Reader():
             (byte_idx, field_info) = self._read_field_lite(byte_idx)
 
             # record data blocks start, end
-            block_ptr_types = {
-                    142:0, 143:1, 132:2, 133:3, 141:4,
-                    140:5, 126:6, 127:7, 128:8, 129:9, 130:10}
-            if field_info['type'] in block_ptr_types:
-                block_num = block_ptr_types[field_info['type']]
+            if field_info['type'] in BLOCK_PTR_TYPES:
+                block_num = BLOCK_PTR_TYPES[field_info['type']]
                 out_uint32s = unpack_uint32(
                         field_info['payload'], endian="<")
                 self.data_start[block_num] = out_uint32s[0]

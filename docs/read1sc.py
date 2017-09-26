@@ -10,61 +10,11 @@ import argparse
 import struct
 from terminaltables import AsciiTable
 import biorad1sc_reader
+from biorad1sc_reader.constants import BLOCK_PTR_TYPES, REGION_DATA_TYPES
 
-"""
-test.1sc:
-    BitsPerPixel   16
-    DimensionOrder    XYCZT
-    IsInterleaved    false
-    IsRGB   false
-    LittleEndian   true
-    PixelType uint16
-    Series 0 Name    test.1sc
-    SizeC   1
-    SizeT  1
-    SizeX 696
-    SizeY    520
-    SizeZ   1
-    Location    /Users/mclapp/git/cellcounter/docs/test.1sc
-    Scanner name    ChemiDoc XRS
-
-    696*520*2bytes = 723840bytes
-    696*520*2bytes = 36190 ushorts(2-byte)
-
-    image data 59946 - 783785 (last byte of file)
-"""
 
 # TODO: add assertions, so we can automatically check if our understanding
 #       of file structure is correct
-
-BLOCK_PTR_TYPES = {142:0, 143:1, 132:2, 133:3, 141:4,
-        140:5, 126:6, 127:7, 128:8, 129:9, 130:10, }
-
-DATA_TYPES = {
-        1:"u?byte",
-        2:"u?byte/ASCII",
-        3:"u?int16",
-        4:"uint16",
-        5:"u?int32",
-        6:"u?int32",
-        7:"uint64",
-        9:"uint32",
-        10:"8-byte - float?",
-        15:"uint32 Reference",
-        17:"uint32 Reference",
-        131:"12-byte??",
-        1001:"8- or 24-byte??",
-        1002:"24-byte??",
-        1003:"8-byte (x,y)??",
-        1004:"8- or 16-byte (x1,y1,x2,y2)??",
-        1005:"64-byte??",
-        1006:"640-byte??",
-        1010:"144-byte??",
-        1016:"440-byte??",
-        1020:"32-byte??",
-        1027:"8-byte??",
-        1032:"12-byte??",
-        }
 
 
 def print_list(byte_list, bits=8, address=None, var_tab=False, file=sys.stdout):
@@ -369,8 +319,6 @@ def read_field(in_bytes, byte_idx, field_ids=None,
     elif field_type == 102:
         field_info_payload = process_payload_type102(
                 field_payload, field_ids=field_ids, file=file, quiet=quiet)
-    else:
-        pass
 
     # report the following payloads if not quiet
     if not quiet and field_type not in [100, 101, 102]:
@@ -380,53 +328,18 @@ def read_field(in_bytes, byte_idx, field_ids=None,
             process_payload_type0(in_bytes, file=file)
         elif field_type == 16:
             process_payload_type16(field_payload, file=file)
+        elif field_type in [100, 101, 102]:
+            # we've already taken care of these fields in previous if field_type
+            pass
         elif field_type in BLOCK_PTR_TYPES:
             process_payload_blockptr(field_payload, field_type=field_type,
                     file=file)
         elif field_type == 131:
             process_payload_type131(field_payload, field_ids=field_ids,
                     file=file)
-        elif field_type == 1000:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1004:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1007:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1008:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1010:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1011:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1015:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1020:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1022:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1024:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1030:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type == 1040:
-            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
-                    file=file)
-        elif field_type in [100, 101, 102]:
-            # we've already taken care of these fields in previous if field_type
-            pass
         else:
-            process_payload_generic(field_payload, file=file)
+            process_payload_generic_refs_data(field_payload, field_ids=field_ids,
+                    file=file)
 
     field_info['type'] = field_type
     field_info['start'] = field_start
@@ -573,7 +486,7 @@ def process_payload_type100(field_payload, field_ids=None,
                         "Region %d Data Type"%i,
                         print_list_simple(uint16s[u16start:u16start+1], bits=16)],
                     ["", "", "",
-                        "(" + DATA_TYPES.get(uint16s[u16start:u16start+1][0],"") + ")"],
+                        "(" + REGION_DATA_TYPES.get(uint16s[u16start:u16start+1][0],"") + ")"],
                     ["%d-%d"%(bstart+2, bstart+3), "uint16",
                         "Region %d Index"%i,
                         print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
@@ -1215,7 +1128,7 @@ def report_field_type_hier(in_bytes, field_info, field_ids, data_field_types,
             print(tab + "-"*20, file=file)
             print(tab + "'%s'"%region['label'], file=file)
             print(tab + "Data Type  : %d"%region['data_type'] + \
-                    " (%s)"%DATA_TYPES.get(region['data_type'],""),
+                    " (%s)"%REGION_DATA_TYPES.get(region['data_type'],""),
                     file=file)
             print(tab + "Index      : %d"%region['index'],
                     file=file)
@@ -1363,24 +1276,33 @@ def recurse_item_hier2(item, tablevel, file):
     for region in item['data']:
         print(tab + "-"*20, file=file)
         print(tab + "Region: %s"%region['label'], file=file)
-        print(tab + "Data Type  : %d (%s)"%(
-            region['data']['type_num'], region['data']['type']),
-            file=file)
+        print(tab + "Data Type   : %d"%(region['dtype_num']),
+                end="", file=file)
+        if region['dtype'] is not None:
+            print(" (%s)"%(region['dtype']), file=file)
+        else:
+            print("", file=file)
+        print(tab + "Word Size   : %d"%(region['word_size']), file=file)
+        print(tab + "Num. Words  : %d"%(region['num_words']), file=file)
+
         raw_data_str = print_list_simple(
                 region['data']['raw'], bits=8, hexfmt=False)
-        print(tab + "Data (raw) : " + raw_data_str, file=file)
+        print(tab + "Data (raw)  : " + raw_data_str, file=file)
         raw_data_str = print_list_simple(
                 region['data']['raw'], bits=8, hexfmt=True)
-        print(tab + "Data (raw) : " + raw_data_str, file=file)
-        print(tab + "Data       : " + repr(region['data']['proc']),
+        print(tab + "Data (raw)  : " + raw_data_str, file=file)
+        print(tab + "Data        : " + repr(region['data']['proc']),
             file=file)
         #print(tab + repr(region), file=file)
         if type(region['data']['interp']) is dict:
+            print(tab + "Data (intrp): ", file=file)
             recurse_item_hier2(
                     region['data']['interp'],
                     tablevel+2, file
                     )
-
+        elif type(region['data']['interp']) is str:
+            print(tab + "Data (intrp): %s"%(region['data']['interp']),
+                    file=file)
 
 
 def report_hierarchy2(filename, filedir):

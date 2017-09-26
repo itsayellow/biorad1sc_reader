@@ -81,10 +81,10 @@ def recurse_report(coll_item, tablevel, file, verbosity):
             pass
         elif verbosity in [1, 2]:
             print(tab + "Region: %s"%(region['label']), file=file)
-            print(tab + " data_type: %d "%(region['data']['type_num'],),
+            print(tab + " data_type: %d "%(region['dtype_num'],),
                     end="", file=file)
-            if region['data']['type'] is not None:
-                print("(%s)"%(region['data']['type']), file=file)
+            if region['dtype'] is not None:
+                print("(%s)"%(region['dtype']), file=file)
             else:
                 print("", file=file)
 
@@ -97,7 +97,7 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                     recurse_report(data_interp['data'], tablevel+1, file, verbosity)
                 else:
                     print("%s"%(repr(data_interp)), file=file)
-            elif data_interp is None and region['data']['type_num'] in [15, 17]:
+            elif data_interp is None and region['dtype_num'] in [15, 17]:
                 # data_interp is None with Reference type, means missing
                 #   reference, skip
                 pass

@@ -8,6 +8,7 @@ used internally only.
 import sys
 import time
 import struct
+from biorad1sc_reader.constants import REGION_DATA_TYPES
 
 
 def is_ascii(byte_stream):
@@ -233,34 +234,28 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
 
     data_proc = None
     data_interp = None
-    data_type_str = None
 
     if region['data_type'] in [1, 2]:
         # byte / ASCII
         if len(data_raw) > 1 and is_ascii(data_raw):
             data_proc = data_raw.rstrip(b"\x00").decode('utf-8', 'ignore')
-            data_type_str = "ASCII"
         else:
             data_proc = unpack_uint8(data_raw)
             data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-            data_type_str = "byte"
     elif region['data_type'] in [3, 4]:
         # u?int16
         data_proc = unpack_uint16(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-        data_type_str = "uint16"
     elif region['data_type'] in [5, 6, 9]:
         # u?int32
         data_proc = unpack_uint32(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
         if region['label'].endswith("time"):
             data_interp = time.asctime(time.gmtime(data_proc)) + " UTC"
-        data_type_str = "uint32"
     elif region['data_type'] in [7,]:
         # u?int64
         data_proc = unpack_uint64(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-        data_type_str = "uint64"
     elif region['data_type'] in [15, 17]:
         # uint32 Reference
         data_proc = unpack_uint32(data_raw, endian="<")
@@ -285,12 +280,9 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
                 data_interp['id'] = field_info_ref['id']
                 data_interp['type'] = field_info_ref['type']
 
-                # TODO: keep this?
-                region_data['ref_type'] = field_info_ref['type']
                 visited_ids.append(field_info_ref['id'])
         else:
             data_interp = None
-        data_type_str = "uint32 Reference"
     else:
         pass
         # TODO: make generic data types work based on word_size?
@@ -301,8 +293,6 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
 
     region_data['proc'] = data_proc
     region_data['interp'] = data_interp
-    region_data['type'] = data_type_str
-    region_data['type_num'] = region['data_type']
 
     return region_data
 
@@ -343,5 +333,11 @@ def process_payload_data_container(
             regions_list.append({})
             regions_list[-1]['label'] = region['label']
             regions_list[-1]['data'] = region_data
+            regions_list[-1]['dtype'] = REGION_DATA_TYPES.get(
+                    region['data_type'], None
+                    )
+            regions_list[-1]['dtype_num'] = region['data_type']
+            regions_list[-1]['word_size'] = region['word_size']
+            regions_list[-1]['num_words'] = region['num_words']
 
     return regions_list
