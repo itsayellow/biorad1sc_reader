@@ -43,10 +43,12 @@ def process_command_line(argv):
     # switches/options:
     parser.add_argument(
         '-v', '--verbosity', action='store', default=0, type=int,
-        help='Verbosity of report, number from 0 to 2 (default 0).')
+        help='Verbosity of report, number, 0, 1, or 2 (default 0).')
     parser.add_argument(
         '-o', '--output_filename', action='store',
-        help='Name of output text file. (Defaults to <filename>_meta.txt)')
+        help='Name of output text file. (Defaults to <filename>_meta.txt'
+        ' in same directory as source file.'
+        )
 
     #(settings, args) = parser.parse_args(argv)
     args = parser.parse_args(argv)
@@ -76,17 +78,9 @@ def recurse_report(coll_item, tablevel, file, verbosity):
     for region in coll_item:
         data_proc = region['data']['proc']
         data_interp = region['data']['interp']
-
-        if verbosity == 0:
-            pass
-        elif verbosity in [1, 2]:
-            print(tab + "Region: %s"%(region['label']), file=file)
-            print(tab + " data_type: %d "%(region['dtype_num'],),
-                    end="", file=file)
-            if region['dtype'] is not None:
-                print("(%s)"%(region['dtype']), file=file)
-            else:
-                print("", file=file)
+        dtype_str = "%d"%(region['dtype_num'])
+        if region['dtype'] is not None:
+            dtype_str += " (%s)"%(region['dtype'])
 
         if verbosity == 0:
             if data_interp is not None:
@@ -108,7 +102,13 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                 print(tab + "%s: "%(region['label']), end="", file=file)
                 print_raw_data(region['data']['raw'], tab,
                         2 + len(region['label']), file=file)
-        elif verbosity in [1, 2]:
+        elif verbosity ==1:
+            print(tab + "Region: %s"%(region['label']), file=file)
+            print(tab + " data_type: %s"%(dtype_str), file=file)
+            if data_proc is None and data_interp is None:
+                print(tab + " data_raw: ", end="", file=file)
+                print_raw_data(region['data']['raw'], tab, len(' data_raw: '),
+                        file=file)
             if data_proc is not None:
                 print(tab + " data_proc: " + repr(data_proc), file=file)
             if type(data_interp) is dict:
@@ -118,12 +118,25 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                 recurse_report(data_interp['data'], tablevel+1, file, verbosity)
             elif data_interp is not None:
                 print(tab + " data_interp: " + repr(data_interp), file=file)
-            else:
-                pass
-            if data_proc is None and data_interp is None:
-                print(tab + " data_raw: ", end="", file=file)
-                print_raw_data(region['data']['raw'], tab, len(' data_raw: '),
-                        file=file)
+        elif verbosity ==2:
+            print(tab + "Region: %s"%(region['label']), file=file)
+            print(tab + " data_type   : %s"%(dtype_str), file=file)
+            print(tab + " region_index: %d"%(region['region_idx']), file=file)
+            print(tab + " word_size   : %d"%(region['word_size']), file=file)
+            print(tab + " num_words   : %d"%(region['num_words']), file=file)
+            print(tab + " data_raw    : ", end="", file=file)
+            print_raw_data(region['data']['raw'], tab, len(' data_raw   : '),
+                    file=file)
+            if data_proc is not None:
+                print(tab + " data_proc   : " + repr(data_proc), file=file)
+
+            if type(data_interp) is dict:
+                print(tab + " data_interp: (Reference, Field Type " +
+                        "%d)"%(data_interp['type']), file=file)
+                # reference to another data structure, recurse
+                recurse_report(data_interp['data'], tablevel+1, file, verbosity)
+            elif data_interp is not None:
+                print(tab + " data_interp: " + repr(data_interp), file=file)
 
 
 def report(file_metadata, out_fh, verbosity):
@@ -163,9 +176,14 @@ def report(file_metadata, out_fh, verbosity):
 def main(argv=None):
     args = process_command_line(argv)
 
+    if args.verbosity not in [0, 1, 2]:
+        print("Option -v or --verbosity must have an argument of 0, 1, or 2.",
+                file=sys.stderr)
+        return 1
+
     if args.output_filename and len(args.src_1sc_file)>1:
         print("Sorry, you cannot specify an output filename with more than " \
-                "one input files.")
+                "one input files.", file=sys.stderr)
         return 1
  
     for srcfilename in args.src_1sc_file:

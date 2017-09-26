@@ -93,7 +93,7 @@ def print_list_simple(wordlist, bits=8, hexfmt=False):
     first_time = True
     for myword in wordlist:
         if not first_time:
-            outstr = outstr + ", "
+            outstr = outstr + " "
         else:
             first_time = False
 
@@ -1282,6 +1282,7 @@ def recurse_item_hier2(item, tablevel, file):
             print(" (%s)"%(region['dtype']), file=file)
         else:
             print("", file=file)
+        print(tab + "Region Index: %d"%(region['region_idx']), file=file)
         print(tab + "Word Size   : %d"%(region['word_size']), file=file)
         print(tab + "Num. Words  : %d"%(region['num_words']), file=file)
 

@@ -339,5 +339,6 @@ def process_payload_data_container(
             regions_list[-1]['dtype_num'] = region['data_type']
             regions_list[-1]['word_size'] = region['word_size']
             regions_list[-1]['num_words'] = region['num_words']
+            regions_list[-1]['region_idx'] = region['index']
 
     return regions_list
