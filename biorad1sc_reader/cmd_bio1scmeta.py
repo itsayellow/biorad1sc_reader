@@ -91,10 +91,10 @@ def recurse_report(coll_item, tablevel, file, verbosity):
         if verbosity == 0:
             if data_interp is not None:
                 print(tab + "%s: "%(region['label']), end="", file=file)
-                if type(data_interp) is list:
+                if type(data_interp) is dict:
                     print("", file=file)
                     # reference to another data structure, recurse
-                    recurse_report(data_interp, tablevel+1, file, verbosity)
+                    recurse_report(data_interp['data'], tablevel+1, file, verbosity)
                 else:
                     print("%s"%(repr(data_interp)), file=file)
             elif data_interp is None and region['data']['type_num'] in [15, 17]:
@@ -111,11 +111,11 @@ def recurse_report(coll_item, tablevel, file, verbosity):
         elif verbosity in [1, 2]:
             if data_proc is not None:
                 print(tab + " data_proc: " + repr(data_proc), file=file)
-            if type(data_interp) is list:
+            if type(data_interp) is dict:
                 print(tab + " data_interp: (Reference, Field Type " +
-                        "%d)"%(region['data']['ref_type']), file=file)
+                        "%d)"%(data_interp['type']), file=file)
                 # reference to another data structure, recurse
-                recurse_report(data_interp, tablevel+1, file, verbosity)
+                recurse_report(data_interp['data'], tablevel+1, file, verbosity)
             elif data_interp is not None:
                 print(tab + " data_interp: " + repr(data_interp), file=file)
             else:

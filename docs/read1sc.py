@@ -9,6 +9,7 @@ import time
 import argparse
 import struct
 from terminaltables import AsciiTable
+import biorad1sc_reader
 
 """
 test.1sc:
@@ -1295,10 +1296,11 @@ def report_field_type_hier(in_bytes, field_info, field_ids, data_field_types,
 
 def report_hierarchy(in_bytes, data_start, data_len, field_ids,
         is_referenced, filedir, filename, report_strings=True):
+    out_filename = "hierarchy.txt"
     try:
-        out_fh = open(os.path.join(filedir, "hierarchy.txt"), "w")
+        out_fh = open(os.path.join(filedir, out_filename), "w")
     except:
-        print("Error opening hierarchy.txt")
+        print("Error opening %s"%out_filename)
 
     print(filename, file=out_fh)
 
@@ -1349,6 +1351,56 @@ def report_hierarchy(in_bytes, data_start, data_len, field_ids,
             break
 
     out_fh.close()
+
+
+def recurse_item_hier2(item, tablevel, file):
+    tab = " "*4*(tablevel)
+    print(tab + "-"*20, file=file)
+    print(tab + "Item: %s"%item['label'], file=file)
+    print(tab + "Field Type: %d"%item['type'], file=file)
+    print(tab + "Field ID: %d"%item['id'], file=file)
+    tab = " "*4*(tablevel + 1)
+    for region in item['data']:
+        print(tab + "-"*20, file=file)
+        print(tab + "Region: %s"%region['label'], file=file)
+        print(tab + "Data Type  : %d (%s)"%(
+            region['data']['type_num'], region['data']['type']),
+            file=file)
+        raw_data_str = print_list_simple(
+                region['data']['raw'], bits=8, hexfmt=False)
+        print(tab + "Data (raw) : " + raw_data_str, file=file)
+        raw_data_str = print_list_simple(
+                region['data']['raw'], bits=8, hexfmt=True)
+        print(tab + "Data (raw) : " + raw_data_str, file=file)
+        print(tab + "Data       : " + repr(region['data']['proc']),
+            file=file)
+        #print(tab + repr(region), file=file)
+        if type(region['data']['interp']) is dict:
+            recurse_item_hier2(
+                    region['data']['interp'],
+                    tablevel+2, file
+                    )
+
+
+
+def report_hierarchy2(filename, filedir):
+    out_filename = "hierarchy2.txt"
+    try:
+        out_fh = open(os.path.join(filedir, out_filename), "w")
+    except:
+        print("Error opening %s"%out_filename)
+
+    print(filename, file=out_fh)
+
+    reader = biorad1sc_reader.Reader(filename)
+    metadata = reader.get_metadata()
+
+    for collection in metadata:
+        print("-"*79, file=out_fh)
+        print("Data Collection", file=out_fh)
+        print("'%s'"%collection['label'], file=out_fh)
+        for item in collection['data']:
+            recurse_item_hier2(item, 1, out_fh)
 
 
 def update_field_ids(in_bytes, field_ids, data_start, data_len):
@@ -1455,6 +1507,13 @@ def parse_file(filename, report_strings=True):
     print("    Pass 4: Reporting hierarchical data to hierarchy.txt", file=sys.stderr)
     report_hierarchy(in_bytes, data_start, data_len, field_ids,
             is_referenced, filedir, filename, report_strings=report_strings)
+
+    # PASS 5
+    #   report on hierarchy using biorad1sc_reader
+    print("    Pass 5: Reporting hierarchical data to hierarchy2.txt ",
+            file=sys.stderr)
+    print("            (using biorad1sc_reader)" , file=sys.stderr)
+    report_hierarchy2(filename, filedir)
 
 
 def process_command_line(argv):

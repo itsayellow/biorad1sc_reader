@@ -273,12 +273,19 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
             else:
                 field_info_ref = field_ids[this_ref]
                 # recurse into the data container field referenced
-                data_interp = process_payload_data_container(
+                regions_list = process_payload_data_container(
                         field_info_ref,
                         data_types,
                         field_ids,
                         visited_ids
                         )
+                data_interp = {}
+                data_interp['data'] = regions_list
+                data_interp['label'] = data_types[field_info_ref['type']]['label']
+                data_interp['id'] = field_info_ref['id']
+                data_interp['type'] = field_info_ref['type']
+
+                # TODO: keep this?
                 region_data['ref_type'] = field_info_ref['type']
                 visited_ids.append(field_info_ref['id'])
         else:
