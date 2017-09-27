@@ -50,7 +50,6 @@ def process_command_line(argv):
         ' in same directory as source file.'
         )
 
-    #(settings, args) = parser.parse_args(argv)
     args = parser.parse_args(argv)
 
     return args

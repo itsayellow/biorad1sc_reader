@@ -42,7 +42,6 @@ def process_command_line(argv):
         '-o', '--output_filename', action='store',
         help='Name of output image. (Defaults to <input_image>.tif)')
 
-    #(settings, args) = parser.parse_args(argv)
     args = parser.parse_args(argv)
 
     return args
