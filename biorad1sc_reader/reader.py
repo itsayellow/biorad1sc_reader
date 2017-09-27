@@ -63,6 +63,8 @@ class Reader():
     """
     Object to manage reading a Bio-Rad *.1sc file and extracting
     data from it, including image.
+
+    Assumes the *.1sc does not change while this instance has it open.
     """
     def __init__(self, in_filename=None):
         self.collections = None
@@ -89,6 +91,13 @@ class Reader():
         self.__init__()
 
 
+    def refresh(self):
+        """
+        Refresh all internal state using same file.
+        """
+        self.__init__(self.filename)
+
+
     def open_file(self, in_filename):
         """
         Open file and read into memory.
@@ -110,14 +119,22 @@ class Reader():
         status = self._parse_file_header()
 
 
+    def _first_region(self, item, region_name):
+        """
+        Convenience function to fetch data for the first region with label
+        region_name in item
+        """
+        return next(x['data'] for x in item if x['label']==region_name)
+
+
     def _get_img_size(self):
         """
         Get img_size x and y, load into instance
         """
         metadata = self.get_metadata_compact()
         scn_metadata = metadata['Scan Header']['SCN']
-        self.img_size_x = next(x['data'] for x in scn_metadata if x['label']=='nxpix')
-        self.img_size_y = next(x['data'] for x in scn_metadata if x['label']=='nypix')
+        self.img_size_x = self._first_region(scn_metadata,'nxpix')
+        self.img_size_y = self._first_region(scn_metadata,'nypix')
 
 
     def get_img_data(self, invert=False):
@@ -320,9 +337,10 @@ class Reader():
 
 
     def _get_next_data_block_end(self, byte_idx):
-        #block_num = 0
-        #end_idx = data_start[0] + data_len[0]
-
+        """
+        Given a byte index, find the next Data Block end, return byte at
+        start of the following Data Block
+        """
         for i in range(11):
             if byte_idx < self.data_start[i] + self.data_len[i]:
                 block_num = i
