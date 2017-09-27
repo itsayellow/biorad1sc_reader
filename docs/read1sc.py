@@ -2,10 +2,8 @@
 
 # testbed to read, parse *.1sc files
 
-import os
 import os.path
 import sys
-import time
 import argparse
 import struct
 from terminaltables import AsciiTable
@@ -32,6 +30,7 @@ def print_raw_data(data_raw, tab, label_len, hex=True, file=sys.stdout):
             data_str = [" {0:3d}".format(byte) for byte in data_raw[i:i+bytes_per_line]]
         data_str = " ".join(data_str).rstrip()
         if i != 0:
+            # unless first line print spaces to tab in
             print(tab + " "*label_len, end="", file=file)
         print(data_str, file=file)
 
@@ -194,19 +193,19 @@ def debug_generic(byte_stream, byte_start, note_str, format_str,
     return (out_shorts, byte_idx)
 
 
-def debug_ints(byte_stream, byte_start, note_str, quiet=False, file=sys.stdout):
+def debug_int32s(byte_stream, byte_start, note_str, quiet=False, file=sys.stdout):
     (out_ints, byte_idx) = debug_generic(
             byte_stream, byte_start, note_str, "i", quiet=quiet, file=file)
     return (out_ints, byte_idx)
 
 
-def debug_uints(byte_stream, byte_start, note_str, quiet=False, file=sys.stdout):
+def debug_uint32s(byte_stream, byte_start, note_str, quiet=False, file=sys.stdout):
     (out_uints, byte_idx) = debug_generic(
             byte_stream, byte_start, note_str, "I", quiet=quiet, file=file)
     return (out_uints, byte_idx)
 
 
-def debug_ushorts(byte_stream, byte_start, note_str, var_tab=False,
+def debug_uint16s(byte_stream, byte_start, note_str, var_tab=False,
         quiet=False, file=sys.stdout):
     (out_shorts, byte_idx) = debug_generic(
             byte_stream, byte_start, note_str, "H", var_tab=var_tab,
@@ -262,8 +261,7 @@ def print_field_header(in_bytes, byte_idx, file=sys.stdout, quiet=False):
     field_len = header_uint16s[1]
     field_id = header_uint32s[1]
 
-    # field_len of 1 or 2 means field_len=20
-    #   IS THERE EVER LEN 2??
+    # field_len of 1 means field_len=20
     if field_len == 1:
         field_len = 20
     elif field_len == 2:
@@ -367,16 +365,16 @@ def process_payload_generic(field_payload, file=sys.stdout, quiet=False):
             field_payload, 0, "", multiline=True,
             file=file, quiet=quiet)
     if len(field_payload)%2 == 0:
-        debug_ushorts(
+        debug_uint16s(
                 field_payload, 0, "ushorts",
                 file=file, quiet=quiet)
     if len(field_payload)%4 == 0:
-        (out_uints, _) = debug_uints(
+        (out_uints, _) = debug_uint32s(
                 field_payload, 0, "uints",
                 file=file, quiet=quiet)
         if any([x > 0x7FFFFFFF for x in out_uints]):
             # only print signed integers if one is different than uint
-            debug_ints(
+            debug_int32s(
                     field_payload, 0, "ints",
                     file=file, quiet=quiet)
 
@@ -589,7 +587,6 @@ def process_payload_type101(field_payload, field_ids=None,
                         print_list_simple(uint16s[u16start:u16start+1], bits=16)],
                     ["%d-%d"%(bstart+2, bstart+3), "uint16",
                         "Item %d Unknown0\n  (4,5,6,7,16,20,21,22,23)"%i,
-                        #print_list_simple(uint16s[u16start+1:u16start+2], bits=16)],
                         "  {0:d} (0b{0:05b})".format(uint16s[u16start+1])],
                     ["%d-%d"%(bstart+4, bstart+5),"uint16",
                         "Item %d Unknown1\n  (1000)"%i,
@@ -682,6 +679,8 @@ def process_payload_type102(field_payload, field_ids=None,
     return field_info_payload
 
 
+# TODO: we may not need this special case, the format may not be true in 
+#       general
 def process_payload_type131(field_payload, field_ids=None,
         file=sys.stdout):
     if field_ids is None:
@@ -747,9 +746,7 @@ def process_payload_generic_refs_data(field_payload, field_ids=None,
     if field_ids is None:
         field_ids = {}
 
-    # not fixed format?
-    # TODO: just list groups of words between references
-    
+    # just list groups of words between references
     (ref_idx0, ref_idx2) = get_payload_ref_idx(field_payload, field_ids)
     if ref_idx0:
         (this_ref_idx, this_ref) = ref_idx0.pop(0)
@@ -769,16 +766,16 @@ def process_payload_generic_refs_data(field_payload, field_ids=None,
                     field_payload[p_idx:this_endbyte], p_idx, "bytes", multiline=True,
                     file=file)
             if len(field_payload[p_idx:this_endbyte])%2 == 0:
-                debug_ushorts(
+                debug_uint16s(
                         field_payload[p_idx:this_endbyte], p_idx, "uint16s",
                         file=file)
             if len(field_payload[p_idx:this_endbyte])%4 == 0:
-                (out_uints, _) = debug_uints(
+                (out_uints, _) = debug_uint32s(
                         field_payload[p_idx:this_endbyte], p_idx, "uint32s",
                         file=file)
                 if any([x > 0x7FFFFFFF for x in out_uints]):
                     # only print signed integers if one is different than uint
-                    debug_ints(
+                    debug_int32s(
                             field_payload[p_idx:this_endbyte], p_idx, "int32s",
                             file=file)
 
@@ -813,7 +810,6 @@ def search_backwards(in_bytes, field_start, level=0, min_search_idx=0, file=sys.
         test_uint16s = unpack_uint16(in_bytes[idx:idx+2], endian="<")
         test_ushort = test_uint16s[0]
         if idx - 2 + test_ushort == field_start:
-            #read_field(in_bytes, idx-2, note_str="field")
             possibles.append(idx-2)
         idx = idx-1
     for possible_idx in possibles:
@@ -837,10 +833,16 @@ def process_datablock_header(header_bytes, byte_idx, block_num,
         file=sys.stdout):
     # TODO: experimental
     data_block_comment = {
-            3:"'Gel'",
-            5:"'gel'",
-            7:"'AuditTrail'",
-            9:"'SCN'",
+            0:"Data Block 00: 'Overlay Header' Format",
+            1:"Data Block 01: 'Overlay Header' Data",
+            2:"Data Block 02: 'Q1 Description' Format",
+            3:"Data Block 03: 'Q1 Description' Data",
+            4:"Data Block 04: 'DDB Description' Format",
+            5:"Data Block 05: 'DDB Description' Data",
+            6:"Data Block 06: 'Audit Trail' Format",
+            7:"Data Block 07: 'Audit Trail' Data",
+            8:"Data Block 08: 'Scan Header' Format",
+            9:"Data Block 09: 'Scan Header' Data",
             }
 
     print("="*79, file=file)
@@ -944,9 +946,6 @@ def print_datablock(in_bytes, data_start, data_len, block_num, field_ids=None,
 
 
 def get_next_data_block_end(byte_idx, data_start, data_len):
-    #block_num = 0
-    #end_idx = data_start[0] + data_len[0]
-
     for i in range(11):
         if byte_idx < data_start[i] + data_len[i]:
             block_num = i
@@ -1102,14 +1101,8 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids,
             file=out_fh)
     print("IMAGE DATA BLOCK", file=out_fh)
     print(file=out_fh)
-    #print_datablock(data_start[10], data_len[10], "10", file=out_fh)
     data_end = data_start[10] + data_len[10]
     print("Image Data: (%d-%d)"%(data_start[10], data_end-1), file=out_fh)
-    #(img_ushorts, _) = debug_ushorts(
-    #        in_bytes[data_start[10]:data_end],
-    #        data_start[10], "img_data", file=out_fh)
-    #for img_ushort in img_ushorts:
-    #    print(img_ushort, file=out_fh)
     print(file=out_fh)
     print(file=out_fh)
 
@@ -1144,7 +1137,6 @@ def recurse_item_hier(item, tablevel, file):
         else:
             data_proc = "?"
         print(tab + "Data         : " + data_proc, file=file)
-        #print(tab + repr(region), file=file)
         if type(region['data']['interp']) is dict:
             print(tab + "Data (intrp): ", file=file)
             recurse_item_hier(
@@ -1307,11 +1299,7 @@ def process_command_line(argv):
         '-S', '--omit_strings', action='store_true', default=False,
         help='Do not include Type 16 String fields in reports. ' \
                 '(But include the strings when listing references to them.)')
-    #parser.add_argument(
-    #    '-o', '--omit_hidden', action='store_true',
-    #    help='Do not copy picasa hidden images to destination directory.')
 
-    #(settings, args) = parser.parse_args(argv)
     args = parser.parse_args(argv)
 
     return args
