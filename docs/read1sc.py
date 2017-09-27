@@ -226,17 +226,6 @@ def debug_string(byte_stream, byte_start, note_str, multiline=False,
     return (out_string, byte_idx)
 
 
-def debug_nullterm_string(in_bytes, byte_start, note_str, quiet=False,
-        file=sys.stdout):
-    byte_idx = byte_start
-    while in_bytes[byte_idx] != 0:
-        byte_idx += 1
-    return debug_string(
-            in_bytes[byte_start:byte_idx+1],
-            byte_start, note_str, quiet=quiet, file=file
-            )
-
-
 def is_valid_string(byte_stream):
     try:
         byte_stream.decode("utf-8", "strict")
@@ -1106,167 +1095,7 @@ def report_datablocks(in_bytes, data_start, data_len, field_ids,
     print(file=out_fh)
 
 
-def report_field_type_hier(in_bytes, field_info, field_ids, data_field_types,
-        file, indent):
-    tab = " "*4*indent
-    field_start = field_info['start']
-    field_len = field_info['len']
-    if field_info['type'] in  data_field_types:
-        field_data = in_bytes[field_start + 8:field_start + field_len]
-        this_data_field = data_field_types[field_info['type']]
-        data_key = field_ids[this_data_field['data_key_ref']]['regions']
-        print(tab + "-"*20, file=file)
-        print(tab + "'%s'"%this_data_field['label'], file=file)
-        print(tab + "Field Type: %4d"%field_info['type'], file=file)
-        for dkey in data_key:
-            tab = " "*4*(indent + 1)
-            region = data_key[dkey]
-            data_reg_start = region['byte_offset']
-            data_reg_end = region['byte_offset'] + \
-                    region['word_size'] * region['num_words']
-            region_data = field_data[data_reg_start:data_reg_end]
-            print(tab + "-"*20, file=file)
-            print(tab + "'%s'"%region['label'], file=file)
-            print(tab + "Data Type  : %d"%region['data_type'] + \
-                    " (%s)"%REGION_DATA_TYPES.get(region['data_type'],""),
-                    file=file)
-            print(tab + "Index      : %d"%region['index'],
-                    file=file)
-            print(tab + "Num. Words : %d"%region['num_words'],
-                    file=file)
-            print(tab + "Byte Offset: %d"%region['byte_offset'],
-                    file=file)
-            print(tab + "Word Size  : %d"%region['word_size'],
-                    file=file)
-            print(tab + "Ref. Type  : %d"%region['ref_field_type'],
-                    file=file)
-            raw_data_str = print_list_simple(region_data, bits=8, hexfmt=False)
-            print(tab + "Data (raw) : " + raw_data_str, file=file)
-            raw_data_str = print_list_simple(region_data, bits=8, hexfmt=True)
-            print(tab + "Data (raw) : " + raw_data_str, file=file)
-            if region['data_type'] in [1,2]:
-                # byte / ASCII
-                if is_valid_string(region_data):
-                    this_str = region_data.rstrip(b"\x00").decode('utf-8','ignore')
-                    print(tab + "Data       : '" + this_str + "'",
-                            file=file)
-                else:
-                    this_bytes = unpack_uint8(region_data)
-                    print(tab + "Data       : " + repr(),
-                            file=file)
-            elif region['data_type'] in [3,4]:
-                # u?int16
-                print(tab + "Data       : " + \
-                        repr(unpack_uint16(region_data, endian="<")),
-                        file=file)
-            elif region['data_type'] in [5,6,9]:
-                # u?int32
-                if region['label'].endswith("time"):
-                    this_time = time.asctime(
-                            time.gmtime(
-                                unpack_uint32(region_data, endian="<")[0]
-                                )
-                            )
-                    print(tab + "Data       : ",end="", file=file)
-                    print(this_time, file=file)
-                    
-                else:
-                    print(tab + "Data       : " + \
-                            repr(unpack_uint32(region_data, endian="<")),
-                        file=file)
-            elif region['data_type'] in [7,]:
-                # u?int32
-                print(tab + "Data       : " + \
-                        repr(unpack_uint64(region_data, endian="<")),
-                        file=file)
-            elif region['data_type'] in [15,17]:
-                # uint32 Reference
-                this_ref = unpack_uint32(region_data, endian="<")[0]
-                if this_ref != 0:
-                    if field_ids[this_ref]['type'] == 16:
-                        region_str = field_ids[this_ref]['payload'][:-1]
-                        region_str = region_str.decode("utf-8", "ignore")
-                        print(tab + "Data       : "+region_str, file=file)
-                    else:
-                        field_info = field_ids[this_ref]
-                        report_field_type_hier(
-                                in_bytes,
-                                field_info,
-                                field_ids,
-                                data_field_types,
-                                file=file,
-                                indent=indent+2
-                                )
-                else:
-                    print(tab + "Data       : "+repr(this_ref),
-                            file=file)
-            else:
-                print(tab + "Data       : "+repr(region_data),
-                        file=file)
-    else:
-        print("    Field Type: %4d NOT IN COLLECTION", file=file)
-
-
-def report_hierarchy(in_bytes, data_start, data_len, field_ids,
-        is_referenced, filedir, filename, report_strings=True):
-    out_filename = "hierarchy.txt"
-    try:
-        out_fh = open(os.path.join(filedir, out_filename), "w")
-    except:
-        print("Error opening %s"%out_filename)
-
-    print(filename, file=out_fh)
-
-    # start at beginning of Data Block 0 fields
-    byte_idx = data_start[0] + 8
-    # read all fields in file after File Header
-    while byte_idx < data_start[10]:
-        field_start = byte_idx
-        (byte_idx, field_info) = read_field(
-                in_bytes, byte_idx, field_ids=field_ids, file=out_fh,
-                report_strings=report_strings, quiet=True)
-        
-        if field_info['type'] == 0:
-            # we just saw an End Of Data Block Field
-            (block_num, end_idx) = get_next_data_block_end(
-                    byte_idx, data_start, data_len)
-            # skip to first field of next Data Block
-            byte_idx = end_idx + 8
-
-        if field_info['type'] == 102:
-            print("-"*79, file=out_fh)
-            print("Data Collection", file=out_fh)
-            print("'%s'"%field_info['collection_label'], file=out_fh)
-            print("Field Type: %d"%field_info['type'], file=out_fh)
-            collection_ref = field_info['collection_ref']
-            data_field_types = {}
-
-        if field_info['type'] == 101:
-            assert field_info['id'] == collection_ref, \
-                    "Collection Ref. from Type 102 doesn't match Type 101 ID"
-
-            data_field_types = field_info['items']
-
-        if field_info['type'] > 102:
-            report_field_type_hier(
-                    in_bytes,
-                    field_info,
-                    field_ids,
-                    data_field_types,
-                    file=out_fh,
-                    indent=1
-                    )
-
-        # break if we still aren't advancing
-        if byte_idx == field_start:
-            print("ERROR BREAK!!!!", file=out_fh)
-            print("-"*79, file=out_fh)
-            break
-
-    out_fh.close()
-
-
-def recurse_item_hier2(item, tablevel, file):
+def recurse_item_hier(item, tablevel, file):
     tab = " "*4*(tablevel)
     print(tab + "-"*20, file=file)
     print(tab + "Item: %s"%item['label'], file=file)
@@ -1297,7 +1126,7 @@ def recurse_item_hier2(item, tablevel, file):
         #print(tab + repr(region), file=file)
         if type(region['data']['interp']) is dict:
             print(tab + "Data (intrp): ", file=file)
-            recurse_item_hier2(
+            recurse_item_hier(
                     region['data']['interp'],
                     tablevel+2, file
                     )
@@ -1306,8 +1135,8 @@ def recurse_item_hier2(item, tablevel, file):
                     file=file)
 
 
-def report_hierarchy2(filename, filedir):
-    out_filename = "hierarchy2.txt"
+def report_hierarchy(filename, filedir):
+    out_filename = "hierarchy.txt"
     try:
         out_fh = open(os.path.join(filedir, out_filename), "w")
     except:
@@ -1323,7 +1152,7 @@ def report_hierarchy2(filename, filedir):
         print("Data Collection", file=out_fh)
         print("'%s'"%collection['label'], file=out_fh)
         for item in collection['data']:
-            recurse_item_hier2(item, 1, out_fh)
+            recurse_item_hier(item, 1, out_fh)
 
 
 def update_field_ids(in_bytes, field_ids, data_start, data_len):
@@ -1426,17 +1255,11 @@ def parse_file(filename, report_strings=True):
             filedir, filename, report_strings=report_strings)
 
     # PASS 4
-    #   report on hierarchy
-    print("    Pass 4: Reporting hierarchical data to hierarchy.txt", file=sys.stderr)
-    report_hierarchy(in_bytes, data_start, data_len, field_ids,
-            is_referenced, filedir, filename, report_strings=report_strings)
-
-    # PASS 5
     #   report on hierarchy using biorad1sc_reader
-    print("    Pass 5: Reporting hierarchical data to hierarchy2.txt ",
+    print("    Pass 4: Reporting hierarchical data to hierarchy.txt ",
             file=sys.stderr)
     print("            (using biorad1sc_reader)" , file=sys.stderr)
-    report_hierarchy2(filename, filedir)
+    report_hierarchy(filename, filedir)
 
 
 def process_command_line(argv):
