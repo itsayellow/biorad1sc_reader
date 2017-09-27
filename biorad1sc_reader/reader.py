@@ -438,6 +438,13 @@ class Reader():
 
 
     def _make_compact_item(self, item):
+        """
+        Given an Item from metadata data collection, return a compact version
+        of it for use in get_metadata_compact()
+
+        Remove everything except 'label' and most-interpreted form of 'data'
+        available
+        """
         item_compact = {}
         item_compact['label'] = item['label']
         item_compact['data'] = []
@@ -463,8 +470,14 @@ class Reader():
 
     def get_metadata_compact(self):
         """
-        Fetch All Metadata in File, return compact version of 
-        hierarchical dict/list
+        Fetch All Metadata in File, return compact version of hierarchical
+        dict/list
+
+        Convert dict(list()) of Collections, Items to dict().  Leave Regions as
+        list, because they are not guaranteed to have unique labels.
+
+        Remove everything except 'label' and most-interpreted form of 'data'
+        available.
         """
         collections = self.get_metadata()
         collections_compact = {}
@@ -475,7 +488,7 @@ class Reader():
             for item in coll['data']:
                 item_compact = self._make_compact_item(item)
                 assert item['label'] not in collections_compact[coll['label']], \
-                        "Multiple items in collection of the same name."
+                        "Multiple items of the same name in collection."
                 collections_compact[coll['label']][item['label']] = item_compact['data']
 
         return collections_compact
