@@ -6,10 +6,8 @@ Reader.
 """
 
 import sys
-#import time
 import os.path
 import struct
-#import tictoc
 from PIL import Image
 from biorad1sc_reader.parsing import (
         unpack_string,
@@ -27,6 +25,8 @@ except ModuleNotFoundError:
     HAS_NUMPY = False
 else:
     HAS_NUMPY = True
+
+#import tictoc
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
@@ -65,6 +65,7 @@ class Reader():
     data from it, including image.
     """
     def __init__(self, in_filename=None):
+        self.collections = None
         self.data_start = None
         self.data_len = None
         self.filename = None
@@ -113,12 +114,10 @@ class Reader():
         """
         Get img_size x and y, load into instance
         """
-        metadata = self.get_img_summary()
-        img_size = metadata['Number Of Pixels']
-        img_size = img_size.strip('()')
-        (img_size_x, img_size_y) = img_size.split(' x ')
-        self.img_size_x = int(img_size_x)
-        self.img_size_y = int(img_size_y)
+        metadata = self.get_metadata_compact()
+        scn_metadata = metadata['Scan Header']['SCN']
+        self.img_size_x = next(x['data'] for x in scn_metadata if x['label']=='nxpix')
+        self.img_size_y = next(x['data'] for x in scn_metadata if x['label']=='nypix')
 
 
     def get_img_data(self, invert=False):
@@ -138,7 +137,6 @@ class Reader():
         if self.img_data is None:
             img_start = self.data_start[10]
             img_end = self.data_start[10] + self.data_len[10]
-
 
             if HAS_NUMPY:
                 # unsigned uint16s (2-bytes)
@@ -270,6 +268,8 @@ class Reader():
 
     def get_img_summary(self):
         """
+        NOTE: Safer to use get_metadata() or get_metadata_compact()
+
         Read from Data Block 7, containing strings describing image.
         Return dict containing data.
 
@@ -286,8 +286,8 @@ class Reader():
         """
         # very fast, usu ~250us
 
-        # init metadata dict
-        metadata = {}
+        # init summary dict
+        summary = {}
 
         # first 4 uint16s of data block are info about block
         byte_idx = self.data_start[7] + 8
@@ -306,17 +306,17 @@ class Reader():
                     # 'maxsplit' is incompatible with python 2.x
                     info_str_list = info_str.split(': ', maxsplit=1)
                     #<key_name>: <item_name>
-                    metadata[info_str_list[0]] = info_str_list[1]
+                    summary[info_str_list[0]] = info_str_list[1]
                 else:
                     if info_str.startswith('Quantity One'):
-                        metadata['Quantity One'] = info_str
+                        summary['Quantity One'] = info_str
                     elif '\\' in info_str:
-                        metadata['path'] = info_str
+                        summary['path'] = info_str
                     else:
                         # as a last resort, make key=item=info_str
-                        metadata[info_str] = info_str
+                        summary[info_str] = info_str
 
-        return metadata
+        return summary
 
 
     def _get_next_data_block_end(self, byte_idx):
@@ -333,8 +333,13 @@ class Reader():
 
     def get_metadata(self):
         """
-        Fetch All Metadata in File, return hierarchical dict
+        Fetch All Metadata in File, return hierarchical dict/list
         """
+
+        # do not process again if we already have processed the file
+        if self.collections is not None:
+            return self.collections
+
         field_ids = {}
         collections = []
 
@@ -404,16 +409,58 @@ class Reader():
                     this_coll[-1]['id'] = field_info['id']
                     this_coll[-1]['type'] = field_info['type']
                 else:
+                    # we have already visited this field in the hierarchy
                     pass
-                    #print("VISITED!", file=sys.stderr)
-                    #print("    Field ID: " + repr(field_info['id']), file=sys.stderr)
-                    #print("    Field Type: " + repr(field_info['type']), file=sys.stderr)
             else:
                 raise BioRadParsingError(
                         "Unknown Field Type %d in Collection"%field_info['type']
                         )
 
         return collections
+
+
+    def _make_compact_item(self, item):
+        item_compact = {}
+        item_compact['label'] = item['label']
+        item_compact['data'] = []
+        for region in item['data']:
+            region_compact = {}
+            region_compact['label'] = region['label']
+            if region['data']['interp'] is not None:
+                if type(region['data']['interp']) is dict:
+                    item_compact_hier = self._make_compact_item(
+                            region['data']['interp'])
+                    region_compact['data'] = item_compact_hier['data']
+                else:
+                    region_compact['data'] = region['data']['interp']
+            elif region['data']['proc'] is not None:
+                region_compact['data'] = region['data']['proc']
+            else:
+                region_compact['data'] = region['data']['raw']
+
+            item_compact['data'].append(region_compact)
+
+        return item_compact
+
+
+    def get_metadata_compact(self):
+        """
+        Fetch All Metadata in File, return compact version of 
+        hierarchical dict/list
+        """
+        collections = self.get_metadata()
+        collections_compact = {}
+        for coll in collections:
+            assert coll['label'] not in collections_compact, \
+                    "Multiple collections of the same name."
+            collections_compact[coll['label']] = {}
+            for item in coll['data']:
+                item_compact = self._make_compact_item(item)
+                assert item['label'] not in collections_compact[coll['label']], \
+                        "Multiple items in collection of the same name."
+                collections_compact[coll['label']][item['label']] = item_compact['data']
+
+        return collections_compact
 
 
     def _process_field_header(self, byte_idx):
@@ -501,85 +548,3 @@ class Reader():
             # break if we still aren't advancing
             if byte_idx == field_start:
                 raise Exception("Problem parsing file header")
-
-
-FILE_FORMAT_1SC = """
-1sc FILE FORMAT NOTES:
---------
-Header
-    <2-byte field_type>
-    <2-byte byte length of entire field (len(Header) + len(Payload))>
-    <4-byte uint32 field_id>
-Payload
-    <bytes or uint16 or uint32 until end of field>
-
---------------------------
-root type: 102
-type 16 can be repeatedly referenced
-
---------------------------
-102  ->  101 ->  100 ->  16
-    \->  16 \->  16
-
---------------------------
-0     End Of Data Block Field.
-      Following this field is Data Block Footer, Data Block Header
---------------------------
-Data Block Info fields:
-    all
-    field_id = 0
-    field_len = 20 (header_uint16s[1] = 1)
-
-126   Data Block 6 Info
-
-127   Data Block 7 Info
-
-128   Data Block 8 Info
-
-129   Data Block 9 Info
-
-130   Data Block 10 - Image Data Info
-
-132   Data Block 2 Info
-
-133   Data Block 3 Info
-
-140   Data Block 5 Info
-
-141   Data Block 4 Info
-
-142   Data Block 0 Info
-
-143   Data Block 1 Info
-
---------------------------
-16    String field - text label assigned to previous data through data_id
-      NO references to other fields
-      YES referenced by: 100, 101, 102, 131, 1000
-
---------------------------
-2     nop field? - payload is all 0's, otherwise normal header
-      NO references to other fields
-      YES referenced by: 1015
-
-100   Data field - contains multiple data assigned to future text labels
-      YES references to: 16,
-      YES referenced by: 101,
-      Every 36 bytes is data item
-
-101   Data field - contains multiple data assigned to future text labels
-      YES references to: 16, 100
-      YES referenced by: 102
-      Every 20 bytes is data item
-
-102   Data field - contains multiple data assigned to future text labels
-      ROOT FIELD of hierarchy
-      YES references to: 16, 101
-      NOT referenced by other field
-      Every 16 bytes is data item
-
---------------------------
-> 102 Data Container Fields
-      Contain Raw data, referred to by Fields Type 101, described by
-            Data Key Field 100
-"""
