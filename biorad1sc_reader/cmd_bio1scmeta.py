@@ -140,8 +140,8 @@ def recurse_report(coll_item, tablevel, file, verbosity):
 
 
 def report(file_metadata, out_fh, verbosity):
-    if verbosity > 1:
-        # print out full data structure if -a or --all_output
+    if verbosity == 2:
+        # print out full data structure if verbosity == 2
         pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
         pp.pprint(file_metadata)
 
@@ -205,6 +205,11 @@ def main(argv=None):
         bio1sc_reader = biorad1sc_reader.Reader(srcfilename)
 
         file_metadata = bio1sc_reader.get_metadata()
+
+        # DEBUG DELETEME
+        #file_metadata_compact = bio1sc_reader.get_metadata_compact()
+        #pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
+        #pp.pprint(file_metadata_compact)
 
         report(file_metadata, out_fh, args.verbosity)
 
