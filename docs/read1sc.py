@@ -39,8 +39,6 @@ def print_list(byte_list, bits=8, address=None, var_tab=False, file=sys.stdout):
     """
     TODO: is this doing proper little-endian?
     """
-    # log10(2**bits) = log10(2)*bits = 0.301*bits
-    # log16(2**bits) = log16(2)*bits = 0.25*bits
     hex_digits = int(0.25 * bits)
     # add 3 chars for "0x" and ","
     # number of items in a line
@@ -524,7 +522,7 @@ def process_payload_type100(field_payload, field_ids=None,
                     ["%d-%d"%(bstart+32, bstart+35), "uint16",
                         "Region %d Unknown4"%i,
                         print_list_simple(uint16s[u16start+16:u16start+18], bits=16)],
-                    ["-----", "------", "------------------", "----------------"],
+                    ["-"*5, "-"*6, "-"*26, "-"*14],
                     ]
             byte_table_data.extend(byte_table_datitem)
     if not quiet:
@@ -604,7 +602,7 @@ def process_payload_type101(field_payload, field_ids=None,
                         "Item %d Label (Reference)"%i,
                         print_list_simple(uint32s[u32start+4:u32start+5], bits=32)],
                     ["", "", "", "(%s)"%ref_label],
-                    ["-----", "------", "----------------", "----------------"],
+                    ["-"*5, "-"*6, "-"*24, "-"*16],
                     ]
             byte_table_data.extend(byte_table_datitem)
 
@@ -716,7 +714,7 @@ def process_payload_type131(field_payload, field_ids=None,
                 ["%d-%d"%(bstart+8, bstart+11), "uint32",
                     "Item %d Length of string\n  in above Reference"%i,
                     print_list_simple(uint32s[u32start+2:u32start+3], bits=32)],
-                ["-----", "------", "----------------", "----------------"],
+                ["-"*5, "-"*6, "-"*22, "-"*16],
                 ]
         byte_table_data.extend(byte_table_datitem)
 
