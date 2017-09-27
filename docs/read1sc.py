@@ -17,6 +17,25 @@ from biorad1sc_reader.constants import BLOCK_PTR_TYPES, REGION_DATA_TYPES
 #       of file structure is correct
 
 
+MAX_LINE_LEN = 80
+
+
+def print_raw_data(data_raw, tab, label_len, hex=True, file=sys.stdout):
+    line_chars_avail = MAX_LINE_LEN - len(tab) - label_len
+    bytes_per_line = line_chars_avail // 5
+    bytes_per_line = bytes_per_line // 4 * 4
+    bytes_per_line = max(bytes_per_line, 4)
+    for i in range(0, len(data_raw), bytes_per_line):
+        if hex:
+            data_str = ["0x{0:02x}".format(byte) for byte in data_raw[i:i+bytes_per_line]]
+        else:
+            data_str = [" {0:3d}".format(byte) for byte in data_raw[i:i+bytes_per_line]]
+        data_str = " ".join(data_str).rstrip()
+        if i != 0:
+            print(tab + " "*label_len, end="", file=file)
+        print(data_str, file=file)
+
+
 def print_list(byte_list, bits=8, address=None, var_tab=False, file=sys.stdout):
     """
     TODO: is this doing proper little-endian?
@@ -1105,24 +1124,26 @@ def recurse_item_hier(item, tablevel, file):
     for region in item['data']:
         print(tab + "-"*20, file=file)
         print(tab + "Region: %s"%region['label'], file=file)
-        print(tab + "Data Type   : %d"%(region['dtype_num']),
+        print(tab + "Data Type    : %d"%(region['dtype_num']),
                 end="", file=file)
         if region['dtype'] is not None:
             print(" (%s)"%(region['dtype']), file=file)
         else:
             print("", file=file)
-        print(tab + "Region Index: %d"%(region['region_idx']), file=file)
-        print(tab + "Word Size   : %d"%(region['word_size']), file=file)
-        print(tab + "Num. Words  : %d"%(region['num_words']), file=file)
-
-        raw_data_str = print_list_simple(
-                region['data']['raw'], bits=8, hexfmt=False)
-        print(tab + "Data (raw)  : " + raw_data_str, file=file)
-        raw_data_str = print_list_simple(
-                region['data']['raw'], bits=8, hexfmt=True)
-        print(tab + "Data (raw)  : " + raw_data_str, file=file)
-        print(tab + "Data        : " + repr(region['data']['proc']),
-            file=file)
+        print(tab + "Region Index : %d"%(region['region_idx']), file=file)
+        print(tab + "Word Size    : %d"%(region['word_size']), file=file)
+        print(tab + "Num. Words   : %d"%(region['num_words']), file=file)
+        print(tab + "Data (raw)   : ", end="", file=file)
+        print_raw_data(region['data']['raw'], tab, len("Data (rawhex): "),
+                hex=False, file=file)
+        print(tab + "Data (rawhex): ", end="", file=file)
+        print_raw_data(region['data']['raw'], tab, len("Data (rawhex): "),
+                file=file)
+        if region['data']['proc'] is not None:
+            data_proc = repr(region['data']['proc'])
+        else:
+            data_proc = "?"
+        print(tab + "Data         : " + data_proc, file=file)
         #print(tab + repr(region), file=file)
         if type(region['data']['interp']) is dict:
             print(tab + "Data (intrp): ", file=file)
