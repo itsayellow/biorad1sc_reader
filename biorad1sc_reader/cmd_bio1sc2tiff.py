@@ -48,19 +48,22 @@ def process_command_line(argv):
 
 
 def main(argv=None):
+    """
+    Top-level running of program
+    """
     args = process_command_line(argv)
 
-    if args.output_filename and len(args.src_1sc_file)>1:
+    if args.output_filename and len(args.src_1sc_file) > 1:
         print("Sorry, you cannot specify an output filename with more than " \
                 "one input files.")
         return 1
- 
+
     for srcfilename in args.src_1sc_file:
         print(srcfilename, file=sys.stderr)
         if args.output_filename:
             outfilename = args.output_filename
         else:
-            (rootfile,_)=os.path.splitext(srcfilename)
+            (rootfile, _) = os.path.splitext(srcfilename)
             outfilename = rootfile+".tif"
 
         print("    -> "+outfilename, file=sys.stderr)
@@ -96,5 +99,5 @@ def entry_point():
 
 
 if __name__ == "__main__":
-    status = entry_point()
-    sys.exit(status)
+    exit_status = entry_point()
+    sys.exit(exit_status)
