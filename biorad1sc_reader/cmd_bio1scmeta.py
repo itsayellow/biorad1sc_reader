@@ -56,13 +56,17 @@ def process_command_line(argv):
 
 
 def print_raw_data(data_raw, tab, label_len, file):
+    """
+    Print series of bytes compactly, keeping starting tab for
+    possible additional lines
+    """
     same_line_chars_avail = 80 - len(tab) - label_len
     if len(data_raw)*5 < same_line_chars_avail:
         data_str = ["0x{0:02x}".format(byte) for byte in data_raw]
         data_str = " ".join(data_str).rstrip()
         print(data_str, file=file)
     else:
-        own_line_chars_avail =  80 - len(tab) - 2
+        own_line_chars_avail = 80 - len(tab) - 2
         bytes_per_line = own_line_chars_avail // 5
         bytes_per_line = bytes_per_line // 4 * 4
         print("", file=file)
@@ -73,6 +77,9 @@ def print_raw_data(data_raw, tab, label_len, file):
 
 
 def recurse_report(coll_item, tablevel, file, verbosity):
+    """
+    Recurse into the hierarchy of a Collection Item, reporting data.
+    """
     tab = " "*4*tablevel
     for region in coll_item:
         data_proc = region['data']['proc']
@@ -84,7 +91,7 @@ def recurse_report(coll_item, tablevel, file, verbosity):
         if verbosity == 0:
             if data_interp is not None:
                 print(tab + "%s: "%(region['label']), end="", file=file)
-                if type(data_interp) is dict:
+                if isinstance(data_interp, dict):
                     print("", file=file)
                     # reference to another data structure, recurse
                     recurse_report(data_interp['data'], tablevel+1, file, verbosity)
@@ -101,7 +108,7 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                 print(tab + "%s: "%(region['label']), end="", file=file)
                 print_raw_data(region['data']['raw'], tab,
                         2 + len(region['label']), file=file)
-        elif verbosity ==1:
+        elif verbosity == 1:
             print(tab + "Region: %s"%(region['label']), file=file)
             print(tab + " Data Type   : %s"%(dtype_str), file=file)
             if data_proc is None and data_interp is None:
@@ -110,14 +117,14 @@ def recurse_report(coll_item, tablevel, file, verbosity):
                         file=file)
             if data_proc is not None:
                 print(tab + " Data        : " + repr(data_proc), file=file)
-            if type(data_interp) is dict:
+            if isinstance(data_interp, dict):
                 print(tab + " Data (intrp): (Reference, Field Type " +
                         "%d)"%(data_interp['type']), file=file)
                 # reference to another data structure, recurse
                 recurse_report(data_interp['data'], tablevel+1, file, verbosity)
             elif data_interp is not None:
                 print(tab + " Data (intrp): " + repr(data_interp), file=file)
-        elif verbosity ==2:
+        elif verbosity == 2:
             print(tab + "Region: %s"%(region['label']), file=file)
             print(tab + " Data Type   : %s"%(dtype_str), file=file)
             print(tab + " Region Index: %d"%(region['region_idx']), file=file)
@@ -129,7 +136,7 @@ def recurse_report(coll_item, tablevel, file, verbosity):
             if data_proc is not None:
                 print(tab + " Data        : " + repr(data_proc), file=file)
 
-            if type(data_interp) is dict:
+            if isinstance(data_interp, dict):
                 print(tab + " Data (intrp): (Reference, Field Type " +
                         "%d)"%(data_interp['type']), file=file)
                 # reference to another data structure, recurse
@@ -139,6 +146,9 @@ def recurse_report(coll_item, tablevel, file, verbosity):
 
 
 def report(file_metadata, out_fh, verbosity):
+    """
+    Report data contained in file_metadata Collections
+    """
     if verbosity == 2:
         # print out full data structure if verbosity == 2
         pp = pprint.PrettyPrinter(indent=4, width=100, stream=out_fh)
@@ -173,6 +183,10 @@ def report(file_metadata, out_fh, verbosity):
 
 
 def main(argv=None):
+    """
+    Main command top-level function.
+    """
+    returnval = 0
     args = process_command_line(argv)
 
     if args.verbosity not in [0, 1, 2]:
@@ -180,24 +194,26 @@ def main(argv=None):
                 file=sys.stderr)
         return 1
 
-    if args.output_filename and len(args.src_1sc_file)>1:
+    if args.output_filename and len(args.src_1sc_file) > 1:
         print("Sorry, you cannot specify an output filename with more than " \
                 "one input files.", file=sys.stderr)
         return 1
- 
+
     for srcfilename in args.src_1sc_file:
         print(srcfilename, file=sys.stderr)
         if args.output_filename:
             outfilename = args.output_filename
         else:
-            (rootfile,_)=os.path.splitext(srcfilename)
+            (rootfile, _) = os.path.splitext(srcfilename)
             outfilename = rootfile+"_meta.txt"
 
         try:
             out_fh = open(outfilename, 'w')
-        except:
-            print("Can't write to " + outfilename, file=sys.stderr)
-            return 1
+        except OSError:
+            print("ERROR: Can't write to " + outfilename, file=sys.stderr)
+            # don't stop because of one file, keep trying to process others
+            returnval = 1
+            continue
 
         print("    -> "+outfilename, file=sys.stderr)
         # open reader instance and read in file
@@ -212,8 +228,7 @@ def main(argv=None):
 
         report(file_metadata, out_fh, args.verbosity)
 
-
-    return 0
+    return returnval
 
 
 def entry_point():
@@ -231,5 +246,5 @@ def entry_point():
 
 
 if __name__ == "__main__":
-    status = entry_point()
-    sys.exit(status)
+    exit_status = entry_point()
+    sys.exit(exit_status)
