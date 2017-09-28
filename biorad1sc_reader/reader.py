@@ -5,7 +5,7 @@ Main reader module for Bio-Rad *.1sc files.  Includes public API class
 Reader.
 """
 
-import sys
+#import sys
 import os.path
 import struct
 from PIL import Image
@@ -101,6 +101,7 @@ class Reader():
     def open_file(self, in_filename):
         """
         Open file and read into memory.
+        Raises Errors if File is not valid 1sc file.
         """
         # very fast, usu ~600us
 
@@ -116,7 +117,8 @@ class Reader():
         # test magic number of file, get pointers to start, len of all major
         #   data blocks in file
         #   from info at top of file
-        status = self._parse_file_header()
+        # raises Error if something is not right
+        self._parse_file_header()
 
 
     def _first_region(self, item, region_name):
@@ -124,7 +126,7 @@ class Reader():
         Convenience function to fetch data for the first region with label
         region_name in item
         """
-        return next(x['data'] for x in item if x['label']==region_name)
+        return next(x['data'] for x in item if x['label'] == region_name)
 
 
     def _get_img_size(self):
@@ -133,8 +135,8 @@ class Reader():
         """
         metadata = self.get_metadata_compact()
         scn_metadata = metadata['Scan Header']['SCN']
-        self.img_size_x = self._first_region(scn_metadata,'nxpix')
-        self.img_size_y = self._first_region(scn_metadata,'nypix')
+        self.img_size_x = self._first_region(scn_metadata, 'nxpix')
+        self.img_size_y = self._first_region(scn_metadata, 'nypix')
 
 
     def get_img_data(self, invert=False):
@@ -452,7 +454,7 @@ class Reader():
             region_compact = {}
             region_compact['label'] = region['label']
             if region['data']['interp'] is not None:
-                if type(region['data']['interp']) is dict:
+                if isinstance(region['data']['interp'], dict):
                     item_compact_hier = self._make_compact_item(
                             region['data']['interp'])
                     region_compact['data'] = item_compact_hier['data']
