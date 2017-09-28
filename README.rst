@@ -17,7 +17,7 @@ An optional dependency: **numpy**.  If present, biorad1sc_reader will run 4x to 
 Current Status
 **************
 
-* Version 0.2
+* Version 0.3
 * "Alpha" quality software
     * API subject to change
     * No known problems in operation.
@@ -30,6 +30,7 @@ Current Status
     * Reader.save_img_as_tiff_sc()
 * Reading all metadata OK
     * Reader.get_metadata()
+    * Reader.get_metadata_compact()
 * Reading Image Metadata from Data Block 7 OK
     * Reader.get_img_summary()
     * Current info
@@ -63,8 +64,14 @@ Examples
     import bio1sc_reader
     myreader = bio1sc_reader.Reader("my_biorad_file.1sc")
     
-    # get list/dict of metadata in 1sc file
+    # get list/dict of all metadata in 1sc file
     my_img_metadata = myreader.get_metadata()
+
+    # get a more succinct data structure of all metadata in 1sc file
+    my_img_metadata = myreader.get_metadata_compact()
+
+    # get a quick summary of some metadata about the image in the 1sc file
+    my_img_metadata = myreader.get_img_summary()
 
     # Different options for writing image data out as a TIFF file
     myreader.save_img_as_tif("unscaled_brightness.tif")
