@@ -5,7 +5,7 @@ Low-level routines to parse a Bio-Rad *.1sc file.  Intended to be
 used internally only.
 """
 
-import sys
+#import sys
 import time
 import struct
 from biorad1sc_reader.constants import REGION_DATA_TYPES
