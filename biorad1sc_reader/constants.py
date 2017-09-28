@@ -31,5 +31,3 @@ REGION_DATA_TYPES = {
         1027:"8-byte??",
         1032:"12-byte??",
         }
-
-
