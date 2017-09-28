@@ -93,7 +93,7 @@ class Reader():
 
     def refresh(self):
         """
-        Refresh all internal state using same file.
+        Reset and refresh all internal state using same input 1sc file.
         """
         self.__init__(self.filename)
 
