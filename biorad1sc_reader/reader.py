@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Main reader module for Bio-Rad *.1sc files.  Includes public API class
+Main reader module for Bio-Rad \*.1sc files.  Includes public API class
 Reader.
 """
 
@@ -61,10 +61,10 @@ def save_u16_to_tiff(u16in, size, tiff_filename):
 
 class Reader():
     """
-    Object to manage reading a Bio-Rad *.1sc file and extracting
+    Object to manage reading a Bio-Rad 1sc file and extracting
     data from it, including image.
 
-    Assumes the *.1sc does not change while this instance has it open.
+    Assumes the 1sc file does not change while this instance has it open.
     """
     def __init__(self, in_filename=None):
         self.collections = None

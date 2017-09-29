@@ -1,7 +1,10 @@
 API Documentation
 =================
 
-.. automodule:: biorad1sc_reader
+biorad1sc_reader
+----------------
+.. automodule:: biorad1sc_reader.reader
+   :members:
 
 .. autoclass:: biorad1sc_reader.Reader
    :members:
