@@ -36,6 +36,7 @@ setup(
             'console_scripts': [
                 'bio1sc2tiff = biorad1sc_reader.cmd_bio1sc2tiff:entry_point',
                 'bio1scmeta = biorad1sc_reader.cmd_bio1scmeta:entry_point',
+                'bio1scread = biorad1sc_reader.cmd_bio1scread:entry_point',
                 ],
             },
         )
