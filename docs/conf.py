@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # biorad1sc_reader documentation build configuration file, created by
-# sphinx-quickstart on Fri Sep 29 00:41:21 2017.
+# sphinx-quickstart on Fri Sep 29 13:32:51 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -31,7 +31,7 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+extensions = ['sphinx.ext.autodoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
