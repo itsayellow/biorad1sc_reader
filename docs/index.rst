@@ -10,6 +10,9 @@ Welcome to biorad1sc_reader's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   intro
+   api
+
 
 
 Indices and tables
