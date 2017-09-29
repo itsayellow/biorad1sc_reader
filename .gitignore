@@ -11,3 +11,6 @@
 
 # vim swap files
 *.swp
+
+# random files
+/nogit/
