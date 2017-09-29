@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# testbed to read, parse *.1sc files
+# testbed to read, parse, report *.1sc files
 
 import os.path
 import sys
@@ -1283,7 +1283,8 @@ def process_command_line(argv):
 
     # initialize the parser object:
     parser = argparse.ArgumentParser(
-            description="Recurse through srcdir, copying all images to top-level of destdir")
+            description="Read/Parse Bio-Rad *.1sc file(s) and produce reports " \
+                    "detailing their internal structure")
 
     # specifying nargs= puts outputs of parser in list (even if nargs=1)
 
@@ -1310,7 +1311,10 @@ def main(argv=None):
     return 0
 
 
-if __name__ == "__main__":
+def entry_point():
+    """
+    intended to be called as a command from entry_points in setup.py
+    """
     try:
         status = main(sys.argv)
     except KeyboardInterrupt:
@@ -1318,7 +1322,12 @@ if __name__ == "__main__":
         # exit error code for Ctrl-C
         status = 130
 
-    sys.exit(status)
+    return status
+
+
+if __name__ == "__main__":
+    exit_status = entry_point()
+    sys.exit(exit_status)
 
 
 # old method for determining end of block footer/header after 
