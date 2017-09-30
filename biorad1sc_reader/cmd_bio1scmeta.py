@@ -81,7 +81,11 @@ def recurse_report(coll_item, tablevel, file, verbosity):
     Recurse into the hierarchy of a Collection Item, reporting data.
     """
     tab = " "*4*tablevel
-    for region in coll_item:
+
+    def sort_by_iter_index(reg):
+        return 1e3*reg['key_iter'] + reg['region_idx']
+
+    for region in sorted(coll_item, key=sort_by_iter_index):
         data_proc = region['data']['proc']
         data_interp = region['data']['interp']
         dtype_str = "%d"%(region['dtype_num'])
@@ -164,7 +168,7 @@ def report(file_metadata, out_fh, verbosity):
 
         coll = collection['data']
 
-        for item in coll:
+        for item in sorted(coll):
             if verbosity == 0:
                 print(" "*4 + "%s"%item['label'], file=out_fh)
             elif verbosity == 1:

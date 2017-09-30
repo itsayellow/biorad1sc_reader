@@ -5,10 +5,10 @@ Low-level routines to parse a Bio-Rad *.1sc file.  Intended to be
 used internally only.
 """
 
-#import sys
+import sys
 import time
 import struct
-from biorad1sc_reader.constants import REGION_DATA_TYPES
+from biorad1sc_reader.constants import REGION_DATA_TYPES, REGION_DATA_TYPE_BYTES
 
 
 def is_ascii(byte_stream):
@@ -26,6 +26,15 @@ def unpack_string(byte_stream):
     """
     out_string = byte_stream.decode("utf-8", "replace")
     return out_string
+
+
+def unpack_double(byte_stream, endian="<"):
+    """
+    Return list of uint16s, (either endian) from bytestring.
+    """
+    num_double = len(byte_stream)//8
+    out_double = struct.unpack(endian+"d"*num_double, byte_stream)
+    return out_double
 
 
 def unpack_uint8(byte_stream):
@@ -134,12 +143,48 @@ def process_payload_type101(field_payload, field_ids=None):
         field_payload_items[data_field_type]['total_bytes'] = uint32s[u32start+3]
         field_payload_items[data_field_type]['label'] = item_label
 
+        # put indicator in id for data_key as to total bytes explained
+        #   by data key, in case it is missing the word_size bytes
+        field_ids[uint32s[u32start+2]]['data_key_total_bytes'] = uint32s[u32start+3]
+
     field_info_payload['items'] = field_payload_items
 
     return field_info_payload
 
 
-def process_payload_type100(field_payload, field_ids=None):
+def fix_wordsize_zero(field_payload_regions, byte_offsets,
+        data_key_total_bytes):
+    """
+    Fix Datakey data when Field Type 100 doesn't list word_size for one
+    or more data regions of a data type
+    """
+    # The following is based on two problemmatic files seen, having:
+    #   0 where word_size should be
+    # we need to now go back and fix all word_size fields, because in those
+    #   annoying 1sc files the datakey subfield is often (not always) 0
+
+    byte_offsets.sort()
+    # add an extra offset for next byte after datakey definition
+    byte_offsets.append(data_key_total_bytes)
+    # regions sizes is a dict where key is byte_offset, item is region_size
+    region_sizes = {}
+    for i in range(len(byte_offsets)-1):
+        region_sizes[byte_offsets[i]] = byte_offsets[i+1] - byte_offsets[i]
+
+    for pay_reg_num in field_payload_regions:
+        pay_reg = field_payload_regions[pay_reg_num]
+        if pay_reg['word_size'] == 0:
+            # broken so fix
+            if pay_reg['data_type'] in REGION_DATA_TYPE_BYTES:
+                pay_reg['word_size'] = REGION_DATA_TYPE_BYTES[pay_reg['data_type']]
+            else:
+                # if we don't know word_size from data_type, fall back on this
+                #   method, not 100% reliable
+                pay_reg['word_size'] = region_sizes[pay_reg['byte_offset']]//pay_reg['num_words']
+
+
+def process_payload_type100(field_payload, data_key_total_bytes,
+        field_ids=None):
     """
     Process the payload of a 1sc Field Type 100, returning the relevant
     data to a dict.
@@ -161,6 +206,8 @@ def process_payload_type100(field_payload, field_ids=None):
     uint16s = unpack_uint16(field_payload, endian="<")
     uint32s = unpack_uint32(field_payload, endian="<")
 
+    byte_offsets = []
+    has_wordsize_zero = False
     for i in range(num_data_items):
         u16start = i*(ditem_len//2)
         u32start = i*(ditem_len//4)
@@ -178,6 +225,15 @@ def process_payload_type100(field_payload, field_ids=None):
         field_payload_regions[i]['word_size'] = uint32s[u32start+5]
         field_payload_regions[i]['ref_field_type'] = uint16s[u16start+13]
 
+        byte_offsets.append(field_payload_regions[i]['byte_offset'])
+        if uint32s[u32start+5] == 0:
+            has_wordsize_zero = True
+
+    if has_wordsize_zero:
+        # fix data_key data if any word_size=0 in data_key
+        fix_wordsize_zero(field_payload_regions, byte_offsets,
+                data_key_total_bytes)
+
     field_info_payload['regions'] = field_payload_regions
 
     return field_info_payload
@@ -187,50 +243,19 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
     """
     Process one region of one data container field.
     """
-    # Data Types:
-    #    1:"u?byte",
-    #    2:"u?byte/ASCII",
-    #    3:"u?int16",
-    #    4:"uint16",
-    #    5:"u?int32",
-    #    6:"u?int32",
-    #    7:"uint64",
-    #    9:"uint32",
-    #    15:"uint32 Reference",
-    #    17:"uint32 Reference",
-    #
-    #    01100100 = 100:"8-byte?"
-    #    01100110 = 102:"16-byte?"
-    #    01100111 = 103:"8-byte?"
-    #    01101011 = 107:"8-byte?"
-    #    01101110 = 110:"8-byte?"
-    #    01110011 = 115:"4-byte?"
-    #    01111000 = 120:"8-byte?"
-    #    10000011 = 131:"12-byte??",
-    #    11_11101001 = 1001:"8- or 24-byte??",
-    #    11_11101010 = 1002:"24-byte??",
-    #    11_11101011 = 1003:"8- or 16-byte (x,y)??",
-    #    11_11101100 = 1004:"8- or 16-byte (x1,y1,x2,y2)??",
-    #    11_11101101 = 1005:"64-byte??",
-    #    11_11101110 = 1006:"12- or 640-byte??",
-    #    11_11110010 = 1010:"144-byte??",
-    #    11_11110011 = 1011:"8-byte??",
-    #    11_11110100 = 1012:"16-byte??",
-    #    11_11111000 = 1016:"440-byte??",
-    #    11_11111011 = 1019:"8-byte??",
-    #    11_11111100 = 1020:"32-byte??",
-    #    11_11111111 = 1023:"24-byte??",
-    #    1027:"8-byte??",
-    #    1032:"12-byte??",
-    #    1036:"8-byte??",
-    #    1048:"40-byte??",
-
     region_data = {}
     data_region_start = region['byte_offset']
     data_region_end = region['byte_offset'] + \
             region['word_size'] * region['num_words']
     data_raw = payload[data_region_start:data_region_end]
     region_data['raw'] = data_raw
+
+    # DEBUG DELETEME
+    #print("region" + repr(region), file=sys.stderr)
+    #print("payload" + repr(payload), file=sys.stderr)
+    #print("data_region_start " + repr(data_region_start), file=sys.stderr)
+    #print("data_region_end " + repr(data_region_end), file=sys.stderr)
+    #print("data_raw " + repr(data_raw), file=sys.stderr)
 
     data_proc = None
     data_interp = None
@@ -246,7 +271,7 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
         # u?int16
         data_proc = unpack_uint16(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
-    elif region['data_type'] in [5, 6, 9]:
+    elif region['data_type'] in [5, 6, 9, 21]:
         # u?int32
         data_proc = unpack_uint32(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
@@ -255,6 +280,10 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
     elif region['data_type'] in [7,]:
         # u?int64
         data_proc = unpack_uint64(data_raw, endian="<")
+        data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
+    elif region['data_type'] in [10,]:
+        # double (float)
+        data_proc = unpack_double(data_raw, endian="<")
         data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
     elif region['data_type'] in [15, 17]:
         # uint32 Reference
@@ -303,42 +332,50 @@ def process_payload_data_container(
     Process the payload of a 1sc Field Type > 102, (a data container field,)
     returning the relevant data to a dict.
     """
-    regions_list = []
-    this_data_field = data_types[field_info['type']]
-    data_key = field_ids[this_data_field['data_key_ref']]['regions']
-    payload_len = len(field_info['payload'])
-    data_key_len = this_data_field['total_bytes']
+    try:
+        regions_list = []
+        this_data_field = data_types[field_info['type']]
+        data_key = field_ids[this_data_field['data_key_ref']]['regions']
+        payload_len = len(field_info['payload'])
+        data_key_len = this_data_field['total_bytes']
 
-    # Sometimes Field 101 specifies total bytes in regions that is less
-    #   than eventual data container field payload size.
-    # In this case, data container field payload has a multiple of total bytes
-    #   specified in the data key, and one must repeatedly go through
-    #   the regions specified in the data key until the entire payload
-    #   of the data container field is processed.
+        # Sometimes Field 101 specifies total bytes in regions that is less
+        #   than eventual data container field payload size.
+        # In this case, data container field payload has a multiple of total bytes
+        #   specified in the data key, and one must repeatedly go through
+        #   the regions specified in the data key until the entire payload
+        #   of the data container field is processed.
 
-    data_key_multiple = payload_len // data_key_len
-    assert payload_len % data_key_len == 0, \
-            "Payload Length is not a multiple of Data Key description"
+        data_key_multiple = payload_len // data_key_len
+        assert payload_len % data_key_len == 0, \
+                "Payload Length is not a multiple of Data Key description"
 
-    for i in range(data_key_multiple):
-        for dkey in data_key:
-            region = data_key[dkey]
-            region_data = process_data_region(
-                    region,
-                    field_info['payload'][i*data_key_len:(i+1)*data_key_len],
-                    field_ids,
-                    data_types,
-                    visited_ids
-                    )
-            regions_list.append({})
-            regions_list[-1]['label'] = region['label']
-            regions_list[-1]['data'] = region_data
-            regions_list[-1]['dtype'] = REGION_DATA_TYPES.get(
-                    region['data_type'], None
-                    )
-            regions_list[-1]['dtype_num'] = region['data_type']
-            regions_list[-1]['word_size'] = region['word_size']
-            regions_list[-1]['num_words'] = region['num_words']
-            regions_list[-1]['region_idx'] = region['index']
+        for i in range(data_key_multiple):
+            for dkey in data_key:
+                region = data_key[dkey]
+                region_data = process_data_region(
+                        region,
+                        field_info['payload'][i*data_key_len:(i+1)*data_key_len],
+                        field_ids,
+                        data_types,
+                        visited_ids
+                        )
+                regions_list.append({})
+                regions_list[-1]['label'] = region['label']
+                regions_list[-1]['data'] = region_data
+                regions_list[-1]['dtype'] = REGION_DATA_TYPES.get(
+                        region['data_type'], None
+                        )
+                regions_list[-1]['dtype_num'] = region['data_type']
+                regions_list[-1]['word_size'] = region['word_size']
+                regions_list[-1]['num_words'] = region['num_words']
+                regions_list[-1]['region_idx'] = region['index']
+                regions_list[-1]['key_iter'] = i
+    except:
+        # before error, display some info
+        print("ERROR in process_payload_data_container, " 
+                "dumping current field_info:", file=sys.stderr)
+        print(field_info, file=sys.stderr)
+        raise
 
     return regions_list

@@ -408,8 +408,10 @@ class Reader():
                 data_types = field_info['items']
             elif field_info['type'] == 100:
                 # data keys (data format)
+                data_key_total_bytes = field_ids[field_info['id']]['data_key_total_bytes']
                 field_payload_info = process_payload_type100(
-                        field_info['payload'], field_ids=field_ids)
+                        field_info['payload'],
+                        data_key_total_bytes, field_ids=field_ids)
                 field_info.update(field_payload_info)
                 field_ids[field_info['id']] = field_info
             elif field_info['type'] in data_types:
