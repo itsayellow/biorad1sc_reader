@@ -180,6 +180,8 @@ def fix_wordsize_zero(field_payload_regions, byte_offsets,
             else:
                 # if we don't know word_size from data_type, fall back on this
                 #   method, not 100% reliable
+                # declare word_size as enough for word_size*num_words to be
+                #   total bytes until next known region or end of payload
                 pay_reg['word_size'] = region_sizes[pay_reg['byte_offset']]//pay_reg['num_words']
 
 
