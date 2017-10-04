@@ -10,3 +10,5 @@ Reference TIFF Files
     #. filename e.g. test1_imglab_analysis.tif
 #. Convert colorspace to Monochrome grayscale from RGB using Graphicsmagick
     1. ``gm convert -colorspace gray test1_imglab_analysis.tif test1_ref.tif``
+#. Create inverted grayscale version
+    1. ``gm convert -negate test1_ref.tif test1_ref_inv.tif``
