@@ -260,11 +260,14 @@ class Reader():
             #   unsigned dtypes cause negative values to wrap to large pos
             #   signed dtypes automatically adjust to size of value,
             #       positive or negative
-            img_data = np.array(img_data, dtype='int32')
+            # need 64-bit signed int, because we multiply 16-bit by 16-bit
+            #   which can be maximum positive 32-bits
+            img_data = np.array(img_data, dtype='int64')
             img_data_scale = (img_data-img_min)*(2**16-1)/img_span
 
             # enforce max and min via clipping
             np.clip(img_data_scale, 0, 2**16-1, out=img_data_scale)
+
             # cast back to int16 after clipping
             img_data_scale = img_data_scale.astype('uint16')
         else:
