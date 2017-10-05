@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# e.g.:
+# makeref test1
+
 inputfile="$1_imglab_analysis.tif"
 out_ref_inv="$1_ref_inv.tif"
 out_ref="$1_ref.tif"
