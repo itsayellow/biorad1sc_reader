@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+
+import sys
+import json
+import os.path
+import biorad1sc_reader
+
+
+class BytesEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # handle bytes if found
+        if isinstance(obj, bytes):
+            ret_obj = {}
+            ret_obj['__bytes__'] = True
+            ret_obj['data'] = list(obj)
+            return ret_obj
+        # for all else use default encoder
+        return json.JSONEncoder.default(self, obj)
+
+
+def main():
+    infile = sys.argv[1]
+    (outfile, _) = os.path.splitext(infile)
+
+    # output regular metadata structure to json
+    outfile = outfile + "_ref_meta.json"
+
+    print(infile)
+    print("    -> " + outfile)
+
+    myreader = biorad1sc_reader.Reader(infile)
+    mymeta = myreader.get_metadata()
+
+    with open(outfile, 'w') as out_fh:
+        json.dump(mymeta, out_fh, cls=BytesEncoder)
+
+    # output regular metadata structure to json
+    (outfile, _) = os.path.splitext(infile)
+    outfile = outfile + "_ref_meta_compact.json"
+
+    print(infile)
+    print("    -> " + outfile)
+
+    myreader = biorad1sc_reader.Reader(infile)
+    mymeta = myreader.get_metadata_compact()
+
+    with open(outfile, 'w') as out_fh:
+        json.dump(mymeta, out_fh, cls=BytesEncoder)
+
+
+if __name__ == '__main__':
+    main()
