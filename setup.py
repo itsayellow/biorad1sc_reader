@@ -32,6 +32,8 @@ setup(
         packages=['biorad1sc_reader'],
         install_requires=['Pillow'],
         python_requires='>=3',
+        test_suite='nose2.collector.collector',
+        tests_require=['nose2','numpy'],
         entry_points={
             'console_scripts': [
                 'bio1sc2tiff = biorad1sc_reader.cmd_bio1sc2tiff:entry_point',
