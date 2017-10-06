@@ -56,9 +56,9 @@ class TestReader(unittest.TestCase):
         except FileExistsError:
             # if dir exists, remove it and create new one
             # start with fresh dir
-            #shutil.rmtree(self.scratch_dir)
-            #os.mkdir(self.scratch_dir)
-            pass
+            shutil.rmtree(self.scratch_dir)
+            os.mkdir(self.scratch_dir)
+        # record state of HAS_NUMPY
         self.has_numpy = biorad1sc_reader.reader.HAS_NUMPY
 
 
@@ -66,9 +66,10 @@ class TestReader(unittest.TestCase):
         """
         Occurs after every test method
         """
+        # put HAS_NUMPY back to orig state
         biorad1sc_reader.reader.HAS_NUMPY = self.has_numpy
-        pass
-        #shutil.rmtree(self.scratch_dir)
+        # remove scratch dir
+        shutil.rmtree(self.scratch_dir)
 
 
     def compare_images(self, ref_img_file, test_img_file):
