@@ -9,29 +9,6 @@ import biorad1sc_reader
 import unittest
 
 
-def compare_images(ref_img_file, test_img_file):
-    im_ref = Image.open(ref_img_file)
-    im_test = Image.open(test_img_file)
-
-    self.assertEqual(im_ref.size, im_test.size)
-
-    # the following in PIL makes a ResourceWarning: unclosed file
-    #   TODO: how to work-around??
-    im_ref_data = list(im_ref.getdata())
-    im_test_data = list(im_test.getdata())
-
-    # do these to fail fast if they are not matching
-    self.assertEqual(max(im_test_data), max(im_ref_data))
-    self.assertEqual(min(im_test_data), min(im_ref_data))
-    # check row by row
-    # we could check all data points at once, but this hangs on ineq
-    (row_size, col_size) = im_ref.size
-    for i in range(col_size):
-        self.assertEqual(
-                im_ref_data[i*row_size:(i+1)*row_size],
-                im_test_data[i*row_size:(i+1)*row_size]
-                )
-
 class TestReader(unittest.TestCase):
     tests_dir = os.path.dirname(__file__)
     testdata_dir = os.path.join(tests_dir, 'testdata')
