@@ -24,11 +24,11 @@ then
     echo "    -> $out_ref_inv"
 
     # scale from min to max brightness _ref
-    gm convert -set historgram-threshold 0 -normalize $out_ref $out_ref_sc
+    gm convert -set histogram-threshold 0 -normalize $out_ref $out_ref_sc
     echo "    -> $out_ref_sc"
 
     # scale from min to max brightness _ref_inv
-    gm convert -set historgram-threshold 0 -normalize $out_ref_inv $out_ref_inv_sc
+    gm convert -set histogram-threshold 0 -normalize $out_ref_inv $out_ref_inv_sc
     echo "    -> $out_ref_inv_sc"
 else
     echo "Error: $inputfile doesn't exist"
