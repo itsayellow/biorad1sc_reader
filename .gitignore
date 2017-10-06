@@ -14,3 +14,6 @@
 
 # random files
 /nogit/
+
+# doc builds
+/docs/_build/
