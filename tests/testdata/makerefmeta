@@ -32,7 +32,7 @@ def main():
     mymeta = myreader.get_metadata()
 
     with open(outfile, 'w') as out_fh:
-        json.dump(mymeta, out_fh, cls=BytesEncoder)
+        json.dump(mymeta, out_fh, cls=BytesEncoder, sort_keys=True)
 
     # output regular metadata structure to json
     (outfile, _) = os.path.splitext(infile)
@@ -45,7 +45,7 @@ def main():
     mymeta = myreader.get_metadata_compact()
 
     with open(outfile, 'w') as out_fh:
-        json.dump(mymeta, out_fh, cls=BytesEncoder)
+        json.dump(mymeta, out_fh, cls=BytesEncoder, sort_keys=True)
 
 
 if __name__ == '__main__':
