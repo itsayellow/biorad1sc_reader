@@ -4,4 +4,4 @@
 #   because the specific Exception we're looking for doesn't exist in py2
 biorad1sc_reader
 numpy
-sphinx-argparse
+sphinx_argparse
