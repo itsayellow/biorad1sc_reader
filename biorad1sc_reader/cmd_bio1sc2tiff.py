@@ -11,14 +11,10 @@ import argparse
 import biorad1sc_reader
 
 
-def process_command_line(argv):
+def get_arg_parser():
     """
-    Return args struct
-    `argv` is a list of arguments, or `None` for ``sys.argv[1:]``.
+    Return parser for command-line arguments, options
     """
-    #script_name = argv[0]
-    argv = argv[1:]
-
     # initialize the parser object:
     parser = argparse.ArgumentParser(
             description="Convert input 1sc file(s) to TIFF image(s).")
@@ -42,16 +38,15 @@ def process_command_line(argv):
         '-o', '--output_filename', action='store',
         help='Name of output image. (Defaults to <input_image>.tif)')
 
-    args = parser.parse_args(argv)
-
-    return args
+    return parser
 
 
 def main(argv=None):
     """
     Top-level running of program
     """
-    args = process_command_line(argv)
+    parser = get_arg_parser()
+    args = parser.parse_args(argv)
 
     if args.output_filename and len(args.src_1sc_file) > 1:
         print("Sorry, you cannot specify an output filename with more than " \
