@@ -21,31 +21,21 @@ Current Status
 **************
 
 * "Alpha" quality software
-
     * API subject to change
     * No known problems in operation.
-
 * Installs command-line executables
-
     * bio1sc2tiff (type ``bio1sc2tiff --help``)
     * bio1scmeta (type ``bio1scmeta --help``)
-
 * Reading Image Data OK
 * Saving Image from file to new TIFF file OK
-
     * Reader.save_img_as_tiff()
     * Reader.save_img_as_tiff_sc()
-
 * Reading all metadata OK
-
     * Reader.get_metadata()
     * Reader.get_metadata_compact()
-
 * Reading Image Metadata from Data Block 7 OK
-
     * Reader.get_img_summary()
     * Current info
-
         * Scanner Name: <Scanner Name>
         * Number of Pixels: (<img_size_x> x <img_size_y>)
         * Image Area: (<img_size_x> mm x <img_size_y> mm)
@@ -56,9 +46,7 @@ Current Status
         * New Image Acquired
         * Save As...
         * Quantity One <Quantity One Version String>
-
 * python2 (lack of) support
-
     * I'm currently unwilling to support python2
     * If you'd like python2 support, it's DIY. :)
 
