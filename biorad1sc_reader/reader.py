@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Main reader module for Bio-Rad \*.1sc files.  Includes public API class
+Main reader module for Bio-Rad 1sc files.  Includes public API class
 Reader.
 """
 
