@@ -11,6 +11,7 @@ biorad1sc_reader Documentation
    :caption: Contents:
 
    intro
+   cmdline_utils
    api
 
 

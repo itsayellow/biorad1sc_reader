@@ -11,29 +11,41 @@ to \*.tif images.
 Also installs ``bio1scmeta`` command-line executable to report all metadata
 contained in each \*.1sc file to a text file.
 
-An optional dependency: **numpy**.  If present, biorad1sc_reader will run 4x to 5x faster.
+An optional dependency: **numpy**.  If present, image operations in
+biorad1sc_reader will run 4x to 5x faster.
+
+Documentation at: http://biorad1sc-reader.readthedocs.io/
 
 **************
 Current Status
 **************
 
-* Version 0.3
 * "Alpha" quality software
+
     * API subject to change
     * No known problems in operation.
+
 * Installs command-line executables
+
     * bio1sc2tiff (type ``bio1sc2tiff --help``)
     * bio1scmeta (type ``bio1scmeta --help``)
+
 * Reading Image Data OK
 * Saving Image from file to new TIFF file OK
+
     * Reader.save_img_as_tiff()
     * Reader.save_img_as_tiff_sc()
+
 * Reading all metadata OK
+
     * Reader.get_metadata()
     * Reader.get_metadata_compact()
+
 * Reading Image Metadata from Data Block 7 OK
+
     * Reader.get_img_summary()
     * Current info
+
         * Scanner Name: <Scanner Name>
         * Number of Pixels: (<img_size_x> x <img_size_y>)
         * Image Area: (<img_size_x> mm x <img_size_y> mm)
@@ -44,15 +56,11 @@ Current Status
         * New Image Acquired
         * Save As...
         * Quantity One <Quantity One Version String>
+
 * python2 (lack of) support
+
     * I'm currently unwilling to support python2
     * If you'd like python2 support, it's DIY. :)
-
-*************
-Documentation
-*************
-
-* `File Specification for Bio-Rad 1sc files <https://github.com/itsayellow/biorad1sc_doc/blob/master/file_1sc_spec.md>`_
 
 ********
 Examples
@@ -79,6 +87,12 @@ Examples
     myreader.save_img_as_tif_sc("scaled_brightness.tif")
     myreader.save_img_as_tif_sc("scaled_brightness_more.tif", scale=0.8)
     myreader.save_img_as_tif_sc("scaled_inverted_brightness.tif", invert=True)
+
+**************************
+File Format Documentation
+**************************
+
+* `File Specification for Bio-Rad 1sc files <https://github.com/itsayellow/biorad1sc_doc/blob/master/file_1sc_spec.md>`_
 
 ************
 Related Info
