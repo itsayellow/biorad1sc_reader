@@ -2,6 +2,12 @@
 Command-line Utilities
 #######################
 
+Accompanying this python package are the following
+command-line utilities, which enable some of the
+same tasks to be accomplished without writing
+python code.
+
+
 ===========
 bio1sc2tiff
 ===========

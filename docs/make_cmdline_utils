@@ -3,6 +3,15 @@
 echo '#######################' > cmdline_utils.rst
 echo Command-line Utilities >> cmdline_utils.rst
 echo '#######################' >> cmdline_utils.rst
+
+echo '' >> cmdline_utils.rst
+echo 'Accompanying this python package are the following' >> cmdline_utils.rst
+echo 'command-line utilities, which enable some of the' >> cmdline_utils.rst
+echo 'same tasks to be accomplished without writing' >> cmdline_utils.rst
+echo 'python code.' >> cmdline_utils.rst
+echo '' >> cmdline_utils.rst
+
+
 ./help2rst bio1sc2tiff >> cmdline_utils.rst
 ./help2rst bio1scmeta >> cmdline_utils.rst
 ./help2rst bio1scread >> cmdline_utils.rst
