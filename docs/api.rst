@@ -11,12 +11,3 @@ biorad1sc_reader.reader
 -----------------------
 .. automodule:: biorad1sc_reader.reader
    :members: save_u16_to_tiff
-
-
-+----+----+----+
-|A   |B   |C   |
-+----+----+----+
-|hel |you |guy |
-|thi |is  |a   |
-+----+----+----+
-
