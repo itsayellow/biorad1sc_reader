@@ -34,6 +34,7 @@ $(SPHINXBUILDTARGETS): Makefile cmdline_utils.rst
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 
+# > python3 -msphinx help . _build
 #Sphinx v1.6.4
 #Please use `make target' where target is one of
 #  html        to make standalone HTML files
