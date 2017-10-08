@@ -1,7 +1,3 @@
-#######################
-Command-line Utilities
-#######################
-
 ===========
 bio1sc2tiff
 ===========
@@ -33,7 +29,6 @@ Optional Arguments
 -o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME
                         Name of output image. (Defaults to <input_image>.tif)
 
-
 ==========
 bio1scmeta
 ==========
@@ -64,12 +59,11 @@ Optional Arguments
                         Name of output text file. (Defaults to
                         <filename>_meta.txt in same directory as source file.
 
-
 ==========
 bio1scread
 ==========
 
-Read/Parse Bio-Rad \*.1sc file(s) and produce reports detailing their internal structure
+Read/Parse Bio-Rad *.1sc file(s) and produce reports detailing their internal structure
 
 -----
 Usage
