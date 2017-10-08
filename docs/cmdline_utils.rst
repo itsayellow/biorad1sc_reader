@@ -25,13 +25,14 @@ Positional Arguments
 Optional Arguments
 ------------------
 
--h, --help            show this help message and exit
--s, --scale           Scale brightness of output image to maximize dynamic
-                        range between darkest and lightest pixels in input
-                        file.
--i, --invert          Invert brightness scale of image.
--o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME
-                        Name of output image. (Defaults to <input_image>.tif)
+``-h, --help``
+    show this help message and exit
+``-s, --scale``
+    Scale brightness of output image to maximize dynamic range between darkest and lightest pixels in input file.
+``-i, --invert``
+    Invert brightness scale of image.
+``-o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME``
+     Name of output image. (Defaults to <input_image>.tif)
 
 
 ==========
@@ -57,12 +58,12 @@ Positional Arguments
 Optional Arguments
 ------------------
 
--h, --help            show this help message and exit
--v VERBOSITY, --verbosity VERBOSITY
-                        Verbosity of report, number, 0, 1, or 2 (default 0).
--o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME
-                        Name of output text file. (Defaults to
-                        <filename>_meta.txt in same directory as source file.
+``-h, --help``
+    show this help message and exit
+``-v VERBOSITY, --verbosity VERBOSITY``
+     Verbosity of report, number, 0, 1, or 2 (default 0).
+``-o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME``
+     Name of output text file. (Defaults to <filename>_meta.txt in same directory as source file.
 
 
 ==========
@@ -88,7 +89,8 @@ Positional Arguments
 Optional Arguments
 ------------------
 
--h, --help          show this help message and exit
--S, --omit_strings  Do not include Type 16 String fields in reports. (But
-                      include the strings when listing references to them.)
+``-h, --help``
+    show this help message and exit
+``-S, --omit_strings``
+    Do not include Type 16 String fields in reports. (But include the strings when listing references to them.)
 

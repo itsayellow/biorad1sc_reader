@@ -114,7 +114,9 @@ def main(argv=None):
             if line.rstrip() != "":
                 if re.search(r"\s{2}\S", line):
                     # 2 spaces then non-space starts positional
-                    posarg += "\n" + line.lstrip()
+                    linesearch = re.search(r"(\S.+\S)\s{2,}(\S.+)", line)
+                    posarg += "\n" + "``" + linesearch.group(1) + "``"
+                    posarg += "\n" + "    " + linesearch.group(2)
                 else:
                     # more than 2 spaces is continuing description
                     posarg += " " + line.lstrip()
@@ -124,13 +126,22 @@ def main(argv=None):
         elif optarg_mode:
             if line.rstrip() != "":
                 if line.lstrip().startswith("-"):
-                    optarg += line.lstrip() + "\n"
+                    if re.search(r"\S\s{2,}\S", line):
+                        # option + start of options descrip
+                        linesearch = re.search(r"(\S.+\S)\s{2,}(\S.+)", line)
+                        optarg += "\n" + "``" + linesearch.group(1) + "``"
+                        optarg += "\n" + "    " + linesearch.group(2)
+                    else:
+                        # options only line, descrip of option starts on
+                        #   next line
+                        linesearch = re.search(r"(\S.+\S)", line)
+                        optarg += "\n" + "``" + linesearch.group(1) + "``"
+                        optarg += "\n" + "    "
                 else:
-                    optarg += line + "\n"
+                    optarg += " " + line.lstrip()
             else:
                 optarg_mode = False
 
-    posarg = re.sub(r"(\S+)\s{2,}", r"``\1``\n    ", posarg)
 
     desc = esc_inline_markup(desc)
 

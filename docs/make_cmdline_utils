@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo '#######################' > cmdline_utils.rst
+echo Command-line Utilities >> cmdline_utils.rst
+echo '#######################' >> cmdline_utils.rst
+./help2rst bio1sc2tiff >> cmdline_utils.rst
+./help2rst bio1scmeta >> cmdline_utils.rst
+./help2rst bio1scread >> cmdline_utils.rst
