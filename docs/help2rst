@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+import subprocess
+import re
+
+H1_CHAR = "="
+H2_CHAR = "-"
+
+def process_command_line(argv):
+    """Process command line invocation arguments and switches.
+
+    Args:
+        argv: list of arguments, or `None` from ``sys.argv[1:]``.
+
+    Returns:
+        args: Namespace with named attributes of arguments and switches
+    """
+    #script_name = argv[0]
+    argv = argv[1:]
+
+    # initialize the parser object:
+    parser = argparse.ArgumentParser(
+            description="Recurse through srcdir, copying all images to top-level of destdir")
+
+    # specifying nargs= puts outputs of parser in list (even if nargs=1)
+
+    # required arguments
+    parser.add_argument('src_cmd',
+            help="Source directory (recursively searched)."
+            )
+
+    # switches/options:
+    #parser.add_argument(
+    #    '-s', '--max_size', action='store',
+    #    help='String specifying maximum size of images.  ' \
+    #            'Larger images will be resized. (e.g. "1024x768")')
+    #parser.add_argument(
+    #    '-o', '--omit_hidden', action='store_true',
+    #    help='Do not copy picasa hidden images to destination directory.')
+
+    args = parser.parse_args(argv)
+
+    return args
+
+def h1(h1_text):
+    out_str = ""
+    out_str += H1_CHAR*len(h1_text) + "\n"
+    out_str += h1_text + "\n"
+    out_str += H1_CHAR*len(h1_text)
+    return out_str
+
+
+def h2(h2_text):
+    out_str = ""
+    out_str += H2_CHAR*len(h2_text) + "\n"
+    out_str += h2_text + "\n"
+    out_str += H2_CHAR*len(h2_text)
+    return out_str
+
+
+def tt(tt_text):
+    out_str = "``" + tt_text + "``"
+    return out_str
+
+def esc_inline_markup(text):
+    text = re.sub(r"(\s)([*`|_[])", r"\1\\\2", text)
+    return text
+
+def main(argv=None):
+    args = process_command_line(argv)
+
+    help_out = subprocess.run(
+            [args.src_cmd,"--help"],
+            stdout=subprocess.PIPE,
+            encoding='utf-8'
+            )
+    help_txt = help_out.stdout
+
+    desc = ""
+    usage = ""
+    posarg = ""
+    optarg = ""
+    usage_mode = False
+    desc_mode = False
+    posarg_mode = False
+    optarg_mode = False
+    for line in help_txt.split('\n'):
+        if line.startswith('usage: '):
+            line = line[7:]
+            usage_mode = True
+        elif line.startswith('positional arguments:'):
+            posarg_mode = True
+            continue
+        elif line.startswith('optional arguments:'):
+            optarg_mode = True
+            continue
+
+        if usage_mode:
+            if line.rstrip() != "":
+                usage += " " + line.lstrip()
+            else:
+                usage += "\n"
+                usage_mode = False
+                desc_mode = True
+        elif desc_mode:
+            if line.rstrip() != "":
+                desc += " " + line
+            else:
+                desc += "\n"
+                desc_mode = False
+        elif posarg_mode:
+            if line.rstrip() != "":
+                if re.search(r"\s{2}\S", line):
+                    # 2 spaces then non-space starts positional
+                    posarg += "\n" + line.lstrip()
+                else:
+                    # more than 2 spaces is continuing description
+                    posarg += " " + line.lstrip()
+            else:
+                posarg += "\n"
+                posarg_mode = False
+        elif optarg_mode:
+            if line.rstrip() != "":
+                if line.lstrip().startswith("-"):
+                    optarg += line.lstrip() + "\n"
+                else:
+                    optarg += line + "\n"
+            else:
+                optarg_mode = False
+
+    posarg = re.sub(r"(\S+)\s{2,}", r"``\1``\n    ", posarg)
+
+    desc = esc_inline_markup(desc)
+
+    desc = desc.lstrip().rstrip()
+    usage = usage.lstrip().rstrip()
+    posarg = posarg.lstrip().rstrip()
+    optarg = optarg.lstrip().rstrip()
+
+    print()
+    print(h1(args.src_cmd))
+    print()
+    print(desc)
+    print()
+    print(h2("Usage"))
+    print()
+    print(tt(usage))
+    print()
+    print(h2("Positional Arguments"))
+    print()
+    print(posarg)
+    print()
+    print(h2("Optional Arguments"))
+    print()
+    print(optarg)
+    print()
+
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        status = main(sys.argv)
+    except KeyboardInterrupt:
+        print("Stopped by Keyboard Interrupt", file=sys.stderr)
+        # exit error code for Ctrl-C
+        status = 130
+
+    sys.exit(status)
