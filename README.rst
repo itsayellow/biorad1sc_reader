@@ -95,7 +95,7 @@ Examples
 File Format Documentation
 **************************
 
-* `File Specification for Bio-Rad 1sc files <https://github.com/itsayellow/biorad1sc_doc/blob/master/file_1sc_spec.rst>`_
+* `File Specification for Bio-Rad 1sc files <http://biorad1sc-doc.readthedocs.io/>`_
 
 ************
 Related Info
