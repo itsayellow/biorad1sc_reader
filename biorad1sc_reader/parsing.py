@@ -12,25 +12,52 @@ from biorad1sc_reader.constants import REGION_DATA_TYPES, REGION_DATA_TYPE_BYTES
 
 
 def is_ascii(byte_stream):
-    """
+    """Determine if all bytes in a bytes object are "good" ASCII
+
     If all bytes are normal ascii text with no control characters other
     than NULL, LF, CR, TAB, then return True, else False.
+
+    Args:
+        byte_stream: bytes object of arbitrary length
+
+    Returns:
+        Boolean. True if all bytes are printable ASCII codes or one of the
+        following ASCII codes: 0 (null), 9 (Tab), 10 (LF), 13 (CR);
+        False otherwise.
+
     """
     ok_ascii_byte = [0, 9, 10, 13] + list(range(32, 127))
     return all([byte in ok_ascii_byte for byte in byte_stream])
 
 
 def unpack_string(byte_stream):
-    """
-    Return decoded ASCII string from bytestring.
+    """Return decoded ASCII string from bytestring.
+
+    Decode a bytes object via UTF-8 into a string
+    
+    Args:
+        byte_stream: bytes object of arbitrary length
+
+    Returns:
+        UTF-8 decoded string
     """
     out_string = byte_stream.decode("utf-8", "replace")
     return out_string
 
 
 def unpack_double(byte_stream, endian="<"):
-    """
-    Return list of uint16s, (either endian) from bytestring.
+    """Return list of doubles, (either endian) from bytestring.
+
+    Unpack a bytes object into list of double-precision
+    floating-point numbers.  Each 8 input bytes decodes to a double.
+    endian="<" means little-endian unpacking
+    endian=">" means big-endian unpacking
+
+    Args:
+        byte_stream: bytes object, length is a multiple of 8
+
+    Returns:
+        list of doubles
     """
     num_double = len(byte_stream)//8
     out_double = struct.unpack(endian+"d"*num_double, byte_stream)
@@ -38,8 +65,13 @@ def unpack_double(byte_stream, endian="<"):
 
 
 def unpack_uint8(byte_stream):
-    """
-    Return list of bytes from bytestring.
+    """Return list of bytes from bytes object.
+
+    Args:
+        byte_stream: bytes object, arbitrary length
+
+    Returns:
+        list of bytes
     """
     num_uint8 = len(byte_stream)
     out_uint8s = struct.unpack("B"*num_uint8, byte_stream)
@@ -47,8 +79,18 @@ def unpack_uint8(byte_stream):
 
 
 def unpack_uint16(byte_stream, endian="<"):
-    """
-    Return list of uint16s, (either endian) from bytestring.
+    """Return list of uint16s, (either endian) from bytes object.
+
+    Unpack a bytes object into list of 16-bit unsigned integers.
+    Each 2 input bytes decodes to a uint16.
+    endian="<" means little-endian unpacking
+    endian=">" means big-endian unpacking
+
+    Args:
+        byte_stream: bytes object, length is a multiple of 2
+
+    Returns:
+        list of uint16 numbers
     """
     num_uint16 = len(byte_stream)//2
     out_uint16s = struct.unpack(endian+"H"*num_uint16, byte_stream)
@@ -56,8 +98,18 @@ def unpack_uint16(byte_stream, endian="<"):
 
 
 def unpack_uint32(byte_stream, endian="<"):
-    """
-    Return list of uint32s, (either endian) from bytestring.
+    """Return list of uint32s, (either endian) from bytes object.
+
+    Unpack a bytes object into list of 32-bit unsigned integers.
+    Each 4 input bytes decodes to a uint32.
+    endian="<" means little-endian unpacking
+    endian=">" means big-endian unpacking
+
+    Args:
+        byte_stream: bytes object, length is a multiple of 4
+
+    Returns:
+        list of uint32 numbers
     """
     num_uint32 = len(byte_stream)//4
     out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
@@ -65,8 +117,18 @@ def unpack_uint32(byte_stream, endian="<"):
 
 
 def unpack_uint64(byte_stream, endian="<"):
-    """
-    Return list of uint64s, (either endian) from bytestring.
+    """Return list of uint64s, (either endian) from bytes object.
+
+    Unpack a bytes object into list of 64-bit unsigned integers.
+    Each 8 input bytes decodes to a uint64.
+    endian="<" means little-endian unpacking
+    endian=">" means big-endian unpacking
+
+    Args:
+        byte_stream: bytes object, length is a multiple of 8
+
+    Returns:
+        list of uint64 numbers
     """
     num_uint64 = len(byte_stream)//8
     out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
@@ -74,9 +136,23 @@ def unpack_uint64(byte_stream, endian="<"):
 
 
 def process_payload_type102(field_payload, field_ids=None):
-    """
-    Process the payload of a 1sc Field Type 102, returning the relevant
-    data to a dict.
+    """Process the payload of a 1sc Field Type 102
+
+    Process the payload of a 1sc Field Type 102, a Collection definition,
+    returning the relevant data to a dict in the form of
+    {'collection_num_items':<integer>, 'collection_label':<string>,
+    'collection_ref':<uint32 Field ID>}
+
+    Args:
+        field_payload: bytes object, all the contents of a Field Type 102
+            after the header bytes
+        field_ids: dict with keys of Field IDs (uint32 numbers) and items
+            which are dicts containing all information on that field
+            instance
+
+    Returns:
+        dict with data assigned to the following keys: 'collection_num_items',
+        'collection_label', 'collection_ref',
     """
     if field_ids is None:
         field_ids = {}
@@ -102,9 +178,32 @@ def process_payload_type102(field_payload, field_ids=None):
 
 
 def process_payload_type101(field_payload, field_ids=None):
-    """
-    Process the payload of a 1sc Field Type 101, returning the relevant
-    data to a dict.
+    """Process the payload of a 1sc Field Type 101
+
+    Process the payload of a 1sc Field Type 101, a summary of every type of
+    Data Container type available in this Data Collection,
+    returning the relevant data to a dict in the form of
+    {'items':<tot_items>, <Field Type>:<data_container_info>, ...}
+    where each key <Field Type> is the field type of a Data Container field
+    that is possibly found after this definition in the next Data Block.
+    each <data_container_info> gives a summary of a data container field
+    {
+        'num_regions': <integer>
+        'data_key_ref': <uint32 linking to a Field Type 100>
+        'total_bytes': <integer>
+        'label': <string>
+    }
+
+    Args:
+        field_payload: bytes object, all the contents of a Field Type 101
+            after the header bytes
+        field_ids: dict with keys of Field IDs (uint32 numbers) and items
+            which are dicts containing all information on that field
+            instance
+
+    Returns:
+        dict of dicts, containing a summary all data_container item types
+            possible for the associated Collection
     """
     if field_ids is None:
         field_ids = {}
@@ -187,9 +286,36 @@ def fix_wordsize_zero(field_payload_regions, byte_offsets,
 
 def process_payload_type100(field_payload, data_key_total_bytes,
         field_ids=None):
-    """
-    Process the payload of a 1sc Field Type 100, returning the relevant
-    data to a dict.
+    """Process the payload of a 1sc Field Type 100
+
+    Process the payload of a 1sc Field Type 100, a description of the format
+    of a particular Field Type of data container field.
+    returns the relevant data to a dict in the form of
+    {'regions':<all_regions_dict>}
+    where item <all_regions_dict> is in the form of
+    {<number>:<region_dict>, ..}
+    where each key <number> is a number from 0 to Total Regions - 1
+    where each item <region_dict> is in the form of
+    {
+        'data_type': <uint16 number coding for data type of region>
+        'label': <string>
+        'index': <index that orders data regions>
+        'num_words': <number of words in region>
+        'byte_offset': <byte offset from start of Data Container payload start>
+        'word_size':<number of bytes in each word>
+        'ref_field_type':<uint16 Field Type of reference if data_type is ref.>
+    }
+
+    Args:
+        field_payload: bytes object, all the contents of a Field Type 100
+            after the header bytes
+        field_ids: dict with keys of Field IDs (uint32 numbers) and items
+            which are dicts containing all information on that field
+            instance
+
+    Returns:
+        dict of dict of dicts containing format of a data container field
+        regions
     """
     if field_ids is None:
         field_ids = {}
