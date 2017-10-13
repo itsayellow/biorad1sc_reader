@@ -43,7 +43,7 @@ def get_cmdline_args():
     return args
 
 
-def main(argv=None):
+def main():
     """
     Top-level of program
     """
@@ -85,7 +85,7 @@ def entry_point():
     intended to be called as a command from entry_points in setup.py
     """
     try:
-        status = main(sys.argv)
+        status = main()
     except KeyboardInterrupt:
         print("Stopped by Keyboard Interrupt", file=sys.stderr)
         # exit error code for Ctrl-C

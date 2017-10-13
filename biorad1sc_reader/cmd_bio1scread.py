@@ -1301,7 +1301,7 @@ def get_cmdline_args():
     return args
 
 
-def main(argv=None):
+def main():
     args = get_cmdline_args()
     for filename in args.srcfile:
         parse_file(filename, report_strings=not args.omit_strings)
@@ -1313,7 +1313,7 @@ def entry_point():
     intended to be called as a command from entry_points in setup.py
     """
     try:
-        status = main(sys.argv)
+        status = main()
     except KeyboardInterrupt:
         print("Stopped by Keyboard Interrupt", file=sys.stderr)
         # exit error code for Ctrl-C

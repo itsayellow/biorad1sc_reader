@@ -182,7 +182,7 @@ def report(file_metadata, out_fh, verbosity):
     out_fh.close()
 
 
-def main(argv=None):
+def main():
     """
     Main command top-level function.
     """
@@ -236,7 +236,7 @@ def entry_point():
     intended to be called as a command from entry_points in setup.py
     """
     try:
-        status = main(sys.argv)
+        status = main()
     except KeyboardInterrupt:
         print("Stopped by Keyboard Interrupt", file=sys.stderr)
         # exit error code for Ctrl-C
