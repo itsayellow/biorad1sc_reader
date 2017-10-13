@@ -2,7 +2,7 @@ Internal Code Reference
 =======================
 
 biorad1sc_reader.parsing
------------------------
+------------------------
 .. automodule:: biorad1sc_reader.parsing
    :members:
 
