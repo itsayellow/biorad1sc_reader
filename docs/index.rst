@@ -11,6 +11,8 @@ biorad1sc_reader Documentation
    :caption: Contents:
 
    intro
+   tutorial
+   examples
    cmdline_utils
    api
 
