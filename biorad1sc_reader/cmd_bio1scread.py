@@ -1273,13 +1273,10 @@ def parse_file(filename, report_strings=True):
     report_hierarchy(filename, filedir)
 
 
-def process_command_line(argv):
+def get_cmdline_args():
     """
     Return args struct
-    `argv` is a list of arguments, or `None` for ``sys.argv[1:]``.
     """
-    #script_name = argv[0]
-    argv = argv[1:]
 
     # initialize the parser object:
     parser = argparse.ArgumentParser(
@@ -1299,13 +1296,13 @@ def process_command_line(argv):
         help='Do not include Type 16 String fields in reports. ' \
                 '(But include the strings when listing references to them.)')
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args()
 
     return args
 
 
 def main(argv=None):
-    args = process_command_line(argv)
+    args = get_cmdline_args()
     for filename in args.srcfile:
         parse_file(filename, report_strings=not args.omit_strings)
     return 0

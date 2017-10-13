@@ -11,7 +11,7 @@ import argparse
 import biorad1sc_reader
 
 
-def get_arg_parser():
+def get_cmdline_args():
     """
     Return parser for command-line arguments, options
     """
@@ -38,15 +38,16 @@ def get_arg_parser():
         '-o', '--output_filename', action='store',
         help='Name of output image. (Defaults to <input_image>.tif)')
 
-    return parser
+    args = parser.parse_args()
+
+    return args
 
 
 def main(argv=None):
     """
-    Top-level running of program
+    Top-level of program
     """
-    parser = get_arg_parser()
-    args = parser.parse_args(argv)
+    args = get_cmdline_args()
 
     if args.output_filename and len(args.src_1sc_file) > 1:
         print("Sorry, you cannot specify an output filename with more than " \

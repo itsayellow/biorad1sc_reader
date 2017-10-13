@@ -20,14 +20,10 @@ import biorad1sc_reader
 #       from biorad1sc_reader
 
 
-def process_command_line(argv):
+def get_cmdline_args():
     """
     Return args struct
-    `argv` is a list of arguments, or `None` for ``sys.argv[1:]``.
     """
-    #script_name = argv[0]
-    argv = argv[1:]
-
     # initialize the parser object:
     parser = argparse.ArgumentParser(
             description="Print all metadata contained in 1sc file(s)."
@@ -50,7 +46,7 @@ def process_command_line(argv):
         ' in same directory as source file.'
         )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args()
 
     return args
 
@@ -191,7 +187,7 @@ def main(argv=None):
     Main command top-level function.
     """
     returnval = 0
-    args = process_command_line(argv)
+    args = get_cmdline_args()
 
     if args.verbosity not in [0, 1, 2]:
         print("Option -v or --verbosity must have an argument of 0, 1, or 2.",
