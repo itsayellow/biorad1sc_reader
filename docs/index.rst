@@ -15,6 +15,7 @@ biorad1sc_reader Documentation
    examples
    cmdline_utils
    api
+   internals_ref
 
 
 
