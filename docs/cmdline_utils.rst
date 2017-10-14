@@ -79,7 +79,7 @@ Optional Arguments
 bio1scread
 ==========
 
-Read/Parse Bio-Rad \*.1sc file(s) and produce reports detailing their internal structure
+Read/Parse Bio-Rad \*.1sc file(s) and produce reports detailing their internal structure. Reports for <filename>.1sc are placed in <filename>_reports directory.
 
 -----
 Usage
