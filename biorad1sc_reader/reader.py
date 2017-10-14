@@ -355,8 +355,10 @@ class Reader():
 
 
     def get_metadata(self):
-        """
-        Fetch All Metadata in File, return hierarchical dict/list
+        """Fetch All Metadata in File, return hierarchical dict/list
+
+        Raises:
+           BioRadParsingError: if there was an error in parsing the file
         """
 
         # do not process again if we already have processed the file
@@ -537,6 +539,11 @@ class Reader():
 
 
     def _parse_file_header(self):
+        """Read and process the start of the file (header)
+
+        Raises:
+            BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
+        """
         # reset loop variables
         byte_idx = 160
         self.data_start = {}
