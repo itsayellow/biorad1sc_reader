@@ -57,25 +57,11 @@ def unpack_double(byte_stream, endian="<"):
         byte_stream (bytes): length is a multiple of 8
 
     Returns:
-        list: list of doubles
+        list: unpacked doubles
     """
     num_double = len(byte_stream)//8
     out_double = struct.unpack(endian+"d"*num_double, byte_stream)
     return out_double
-
-
-def unpack_uint8(byte_stream):
-    """Return list of bytes from bytes object.
-
-    Args:
-        byte_stream (bytes): arbitrary length
-
-    Returns:
-        list: list of bytes
-    """
-    num_uint8 = len(byte_stream)
-    out_uint8s = struct.unpack("B"*num_uint8, byte_stream)
-    return out_uint8s
 
 
 def unpack_uint16(byte_stream, endian="<"):
@@ -90,7 +76,7 @@ def unpack_uint16(byte_stream, endian="<"):
         byte_stream (bytes): length is a multiple of 2
 
     Returns:
-        list: list of uint16 numbers
+        list: unpacked uint16 numbers
     """
     num_uint16 = len(byte_stream)//2
     out_uint16s = struct.unpack(endian+"H"*num_uint16, byte_stream)
@@ -109,7 +95,7 @@ def unpack_uint32(byte_stream, endian="<"):
         byte_stream (bytes): length is a multiple of 4
 
     Returns:
-        list: list of uint32 numbers
+        list: unpacked uint32 numbers
     """
     num_uint32 = len(byte_stream)//4
     out_uint32s = struct.unpack(endian+"I"*num_uint32, byte_stream)
@@ -128,7 +114,7 @@ def unpack_uint64(byte_stream, endian="<"):
         byte_stream (bytes): length is a multiple of 8
 
     Returns:
-        list: list of uint64 numbers
+        list: unpacked uint64 numbers
     """
     num_uint64 = len(byte_stream)//8
     out_uint64s = struct.unpack(endian+"Q"*num_uint64, byte_stream)
@@ -427,7 +413,8 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
         if len(data_raw) > 1 and is_ascii(data_raw):
             data_proc = data_raw.rstrip(b"\x00").decode('utf-8', 'ignore')
         else:
-            data_proc = unpack_uint8(data_raw)
+            # tuple equiv. to unpack_uint8
+            data_proc = tuple(data_raw)
             data_proc = data_proc[0] if len(data_proc) == 1 else data_proc
     elif region['data_type'] in [3, 4]:
         # u?int16
