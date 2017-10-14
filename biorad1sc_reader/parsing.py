@@ -260,7 +260,6 @@ def fix_wordsize_zero(field_payload_regions, byte_offsets,
         byte_offsets (list): all starting byte offsets for all regions
         data_key_total_bytes (int): total number of bytes in data container
             that field_payload_regions is defining
-
     """
     # The following is based on two problemmatic files seen, having:
     #   0 where word_size should be
@@ -381,12 +380,12 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
     """Process one region of one data container field.
 
     Args:
-        region (dict): TODO
-        payload (bytes): TODO
+        region (dict): info from datakey about the format of this region
+        payload (bytes): bytes of the payload just for this region
         field_ids (dict): keys are Field IDs, items are dicts containing
             all data for that Field instance
         data_types (dict): TODO
-        visited_ids (list): TODO
+        visited_ids (list): uint32 Field IDs of fields that have been visited
 
     Returns:
         dict: TODO

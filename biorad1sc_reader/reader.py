@@ -30,9 +30,15 @@ else:
 
 
 def save_u16_to_tiff(u16in, size, tiff_filename):
-    """
+    """Save 16-bit uints to TIFF image file
+
     Since Pillow has poor support for 16-bit TIFF, we make our own
     save function to properly save a 16-bit TIFF.
+
+    Args:
+        u16in (list): TODO
+        size (tuple): TODO
+        tiff_filename (string): TODO
     """
 
     # takes  2-14ms currently for 696x520 (WITH numpy)
@@ -67,6 +73,15 @@ class Reader():
     Assumes the 1sc file does not change while this instance has it open.
     """
     def __init__(self, in_filename=None):
+        """Initialize Reader class
+
+        Args:
+            in_filename (string): filepath to 1sc file to read with object
+                instance
+
+        Raises:
+            BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
+        """
         self.collections = None
         self.data_start = None
         self.data_len = None
@@ -85,15 +100,13 @@ class Reader():
 
 
     def reset(self):
-        """
-        Reset all internal state.  (Must load file afterwards.)
+        """Reset all internal state.  (Must load file afterwards.)
         """
         self.__init__()
 
 
     def refresh(self):
-        """
-        Reset and refresh all internal state using same input 1sc file.
+        """Reset and refresh all internal state using same input 1sc file.
         """
         self.__init__(self.filename)
 
@@ -102,6 +115,13 @@ class Reader():
         """
         Open file and read into memory.
         Raises Errors if File is not valid 1sc file.
+
+        Args:
+            in_filename (string): filepath to 1sc file to read with object
+                instance
+
+        Raises:
+            BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
         """
         # very fast, usu ~600us
 
@@ -122,16 +142,23 @@ class Reader():
 
 
     def _first_region(self, item, region_name):
-        """
+        """Fetch data from first region in item with name region_name
+
         Convenience function to fetch data for the first region with label
         region_name in item
+
+        Args:
+            item (dict): TODO
+            region_name (string): TODO
+
+        Returns:
+            bytes: TODO
         """
         return next(x['data'] for x in item if x['label'] == region_name)
 
 
     def _get_img_size(self):
-        """
-        Get img_size x and y, load into instance
+        """Get img_size x and y, load into instance
         """
         metadata = self.get_metadata_compact()
         scn_metadata = metadata['Scan Header']['SCN']
@@ -143,6 +170,14 @@ class Reader():
         """
         Return image_x_size, image_y_size, and list containing image data.
         Also ability to invert brightness.
+
+        Args:
+            invert (Boolean): True to invert the brightness scale of output
+                image data compared to 1sc image data (black <-> white)
+
+        Returns:
+            tuple: (xsize, ysize) of image data
+
         """
         # when extracting from file:
         # takes  ~60ms currently for 696x520 (WITH numpy)
@@ -207,6 +242,11 @@ class Reader():
         """
         Save image data from file as tiff.
         Also ability to invert brightness
+
+        Args:
+            tiff_filename (string): filepath for output TIFF file
+            invert (Boolean): True to invert the brightness scale of output
+                TIFF image compared to 1sc image data (black <-> white)
         """
         # takes ~14ms currently for 696x520 (WITH numpy)
         # takes ~65ms currently for 696x520 (NO numpy)
@@ -230,6 +270,12 @@ class Reader():
         Save image data from file as tiff, with brightness scale expanded from
         min to max.
         Also ability to invert brightness
+
+        Args:
+            tiff_filename (string): filepath for output TIFF file
+            imagesc (float): TODO
+            invert (Boolean): True to invert the brightness scale of output
+                TIFF image compared to 1sc image data (black <-> white)
         """
         # takes  ~45ms currently for 696x520 (WITH numpy)
         # takes ~250ms currently for 696x520 (NO numpy)
@@ -256,7 +302,7 @@ class Reader():
         if HAS_NUMPY:
             # scale brightness of pixels
             # linear map: img_min-img_max to 0-(2**16-1)
-            # make sure we use signed integer dtype for numpy
+            # make sure we use signed int dtype for numpy
             #   unsigned dtypes cause negative values to wrap to large pos
             #   signed dtypes automatically adjust to size of value,
             #       positive or negative
@@ -293,18 +339,22 @@ class Reader():
         NOTE: Safer to use get_metadata() or get_metadata_compact()
 
         Read from Data Block 7, containing strings describing image.
-        Return dict containing data.
 
-        Scanner Name: ChemiDoc XRS
-        Number of Pixels: (696 x 520)
-        Image Area: (200.0 mm x 149.4 mm)
-        Scan Memory Size: 836.32 Kb
-        Old file name: Chemi 2017-05-17 10hr 56min-2.1sc
-        New file name: A11 2017-05-17 10hr 56min-2 B.1sc
-        CHEMIDOC\\Chemi
-        New Image Acquired
-        Save As...
-        Quantity One 4.6.8 build 027
+        Returns:
+            dict: dict containing data from strings in Data Block 7::
+
+                {
+                    'Scanner Name':'ChemiDoc XRS'
+                    'Number of Pixels':'(<x pix size> x <y pix size>)'
+                    'Image Area':'(<x float size> mm x <y float size> mm)'
+                    'Scan Memory Size': '<size in bytes>'
+                    'Old file name': '<orig file name>'
+                    'New file name': '<new file name>'
+                    'path':'CHEMIDOC\\Chemi'
+                    'New Image Acquired':'New Image Acquired'
+                    'Save As...':'Save As...'
+                    'Quantity One':'Quantity One <version> build <build number>'
+                }
         """
         # very fast, usu ~250us
 
@@ -345,6 +395,14 @@ class Reader():
         """
         Given a byte index, find the next Data Block end, return byte at
         start of the following Data Block
+
+        Args:
+            byte_idx (int): file byte offset to search for the end of the
+                next Data Block
+
+        Returns:
+            tuple: (block_num, end_idx) where block_num is the Data Block
+                that ends at end_idx-1
         """
         for i in range(11):
             if byte_idx < self.data_start[i] + self.data_len[i]:
@@ -356,6 +414,9 @@ class Reader():
 
     def get_metadata(self):
         """Fetch All Metadata in File, return hierarchical dict/list
+
+        Returns:
+            list: TODO
 
         Raises:
            BioRadParsingError: if there was an error in parsing the file
@@ -453,6 +514,12 @@ class Reader():
 
         Remove everything except 'label' and most-interpreted form of 'data'
         available
+
+        Args:
+            item (dict): TODO
+
+        Returns:
+            dict: TODO
         """
         item_compact = {}
         item_compact['label'] = item['label']
@@ -487,6 +554,19 @@ class Reader():
 
         Remove everything except 'label' and most-interpreted form of 'data'
         available.
+
+        Returns:
+            dict: collections_compact with structure::
+
+                {
+                    '<collection_name>:<collection_dict>
+                }
+
+            where collection_dict is::
+
+                {
+                }
+
         """
         collections = self.get_metadata()
         collections_compact = {}
@@ -504,6 +584,17 @@ class Reader():
 
 
     def _process_field_header(self, byte_idx):
+        """
+
+        Args:
+            byte_idx (int): file byte offset, start of the field to read header
+
+        Returns:
+            tuple: (field_type, field_len, field_id) where field_type is
+                uint16 Field Type, field_len is int length in bytes of 
+                field, field_id is uint32 Field ID
+
+        """
         # read header
         header_uint16s = unpack_uint16(
                 self.in_bytes[byte_idx:byte_idx+8], endian="<")
@@ -522,6 +613,23 @@ class Reader():
 
 
     def _read_field_lite(self, byte_idx):
+        """
+
+        Args:
+            byte_idx (int): file byte offset, start of the field to read
+
+        Returns:
+            tuple: (file_byte_offset_next_field, field_info) where field info
+                is a dict::
+
+                    {
+                        'type':<uint16 Field Type>
+                        'id':<uint32 Field ID>
+                        'start':<byte offset of start of field>
+                        'len':<total length in bytes of field>
+                        'payload':<field payload bytes>
+                    }
+        """
         field_info = {}
         # read header
         (field_type, field_len, field_id) = self._process_field_header(byte_idx)
