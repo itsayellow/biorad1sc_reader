@@ -1005,13 +1005,14 @@ def process_file_header(in_bytes, file=sys.stdout):
 
 
 def report_whole_file(in_bytes, field_ids, data_start, data_len,
-        filedir, filename, report_strings=True):
+        in_filepath, out_filedir, report_strings=True):
+    out_filepath = os.path.join(out_filedir, "dump.txt")
     try:
-        out_fh = open(os.path.join(filedir, "dump.txt"), "w")
+        out_fh = open(out_filepath, "w")
     except:
         print("Error opening dump.txt")
 
-    print(filename, file=out_fh)
+    print(in_filepath, file=out_fh)
 
     # FILE HEADER
 
@@ -1235,7 +1236,12 @@ def parse_file(filename, report_strings=True):
     print(filename, file=sys.stderr)
 
     filename = os.path.realpath(filename)
-    filedir = os.path.dirname(filename)
+    (fileroot, _) = os.path.splitext(filename)
+    out_filedir = fileroot + "_reports"
+    try:
+        os.mkdir(out_filedir)
+    except FileExistsError:
+        pass
 
     with open(filename, 'rb') as in_fh:
         in_bytes = in_fh.read()
@@ -1257,20 +1263,20 @@ def parse_file(filename, report_strings=True):
     #   report on whole file to dump.txt
     print("    Pass 2: Reporting entire file to dump.txt", file=sys.stderr)
     report_whole_file(in_bytes, field_ids, data_start, data_len,
-            filedir, filename, report_strings=report_strings)
+            filename, out_filedir, report_strings=report_strings)
 
     # PASS 3
     #   report data blocks in separate files
     print("    Pass 3: Reporting data blocks to separate files", file=sys.stderr)
     report_datablocks(in_bytes, data_start, data_len, field_ids,
-            filedir, filename, report_strings=report_strings)
+            out_filedir, filename, report_strings=report_strings)
 
     # PASS 4
     #   report on hierarchy using biorad1sc_reader
     print("    Pass 4: Reporting hierarchical data to hierarchy.txt ",
             file=sys.stderr)
     print("            (using biorad1sc_reader)" , file=sys.stderr)
-    report_hierarchy(filename, filedir)
+    report_hierarchy(filename, out_filedir)
 
 
 def get_cmdline_args():
