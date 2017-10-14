@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Low-level routines to parse a Bio-Rad *.1sc file.  Intended to be
+Low-level routines to parse a Bio-Rad 1sc file.  Intended to be
 used internally only.
 """
 
@@ -187,12 +187,12 @@ def process_payload_type101(field_payload, field_ids=None):
     where each key <Field Type> is the field type of a Data Container field
     that is possibly found after this definition in the next Data Block.
     each <data_container_info> gives a summary of a data container field
-    {
-        'num_regions': <integer>
-        'data_key_ref': <uint32 linking to a Field Type 100>
-        'total_bytes': <integer>
-        'label': <string>
-    }
+    | {
+    |     'num_regions': <integer>
+    |     'data_key_ref': <uint32 linking to a Field Type 100>
+    |     'total_bytes': <integer>
+    |     'label': <string>
+    | }
 
     Args:
         field_payload: bytes object, all the contents of a Field Type 101
@@ -296,15 +296,15 @@ def process_payload_type100(field_payload, data_key_total_bytes,
     {<number>:<region_dict>, ..}
     where each key <number> is a number from 0 to Total Regions - 1
     where each item <region_dict> is in the form of
-    {
-        'data_type': <uint16 number coding for data type of region>
-        'label': <string>
-        'index': <index that orders data regions>
-        'num_words': <number of words in region>
-        'byte_offset': <byte offset from start of Data Container payload start>
-        'word_size':<number of bytes in each word>
-        'ref_field_type':<uint16 Field Type of reference if data_type is ref.>
-    }
+    | {
+    |     'data_type': <uint16 number coding for data type of region>
+    |     'label': <string>
+    |     'index': <index that orders data regions>
+    |     'num_words': <number of words in region>
+    |     'byte_offset': <byte offset from start of Data Container payload>
+    |     'word_size':<number of bytes in each word>
+    |     'ref_field_type':<uint16 Field Type of reference if data_type is ref.>
+    | }
 
     Args:
         field_payload: bytes object, all the contents of a Field Type 100
@@ -368,8 +368,7 @@ def process_payload_type100(field_payload, data_key_total_bytes,
 
 
 def process_data_region(region, payload, field_ids, data_types, visited_ids):
-    """
-    Process one region of one data container field.
+    """Process one region of one data container field.
     """
     region_data = {}
     data_region_start = region['byte_offset']
