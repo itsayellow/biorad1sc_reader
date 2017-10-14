@@ -36,9 +36,10 @@ def save_u16_to_tiff(u16in, size, tiff_filename):
     save function to properly save a 16-bit TIFF.
 
     Args:
-        u16in (list): TODO
-        size (tuple): TODO
-        tiff_filename (string): TODO
+        u16in (list): u16int image pixel data
+        size (tuple): (xsize, ysize) where xsize and ysize are integers
+            specifying the size of the image in pixels
+        tiff_filename (string): filepath for the output TIFF file
     """
 
     # takes  2-14ms currently for 696x520 (WITH numpy)
@@ -76,7 +77,7 @@ class Reader():
         """Initialize Reader class
 
         Args:
-            in_filename (string): filepath to 1sc file to read with object
+            in_filename (string): filepath to 1sc file to read with this
                 instance
 
         Raises:
@@ -112,8 +113,8 @@ class Reader():
 
 
     def open_file(self, in_filename):
-        """
-        Open file and read into memory.
+        """Open file and read into memory.
+
         Raises Errors if File is not valid 1sc file.
 
         Args:
@@ -159,6 +160,9 @@ class Reader():
 
     def _get_img_size(self):
         """Get img_size x and y, load into instance
+
+        Determine image size from metadata of 1sc file and set internal
+        instance attributes self.img_size_x and self.img_size_y
         """
         metadata = self.get_metadata_compact()
         scn_metadata = metadata['Scan Header']['SCN']
@@ -176,7 +180,10 @@ class Reader():
                 image data compared to 1sc image data (black <-> white)
 
         Returns:
-            tuple: (xsize, ysize) of image data
+            tuple: (xsize, ysize, image_data) where xsize and ysize are
+            integers specifying the size of the image, and image_data is
+            a list of uint16 numbers comprising the image data starting
+            from upper-left and progressing to lower-right.
 
         """
         # when extracting from file:
@@ -273,7 +280,9 @@ class Reader():
 
         Args:
             tiff_filename (string): filepath for output TIFF file
-            imagesc (float): TODO
+            imgsc (float): expand brightness scale. Value of 1.0 means that
+                dynamic range of output TIFF will be maximum, with brightest
+                pixel having value 65535 and darkest pixe having value 0.
             invert (Boolean): True to invert the brightness scale of output
                 TIFF image compared to 1sc image data (black <-> white)
         """
@@ -290,11 +299,9 @@ class Reader():
         # scale min/max to scale brightness
         if invert:
             # anchor at img_max if inverted img data
-            #img_max = img_max
             img_min = img_max - (img_max - img_min) * imgsc
         else:
             # anchor at img_min if inverted img data
-            #img_min = img_min
             img_max = img_min + (img_max - img_min) * imgsc
 
         img_span = (img_max - img_min)
