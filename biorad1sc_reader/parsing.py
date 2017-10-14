@@ -186,8 +186,10 @@ def process_payload_type101(field_payload, field_ids=None):
 
     Process the payload of a 1sc Field Type 101, a summary of every type of
     Data Container type available in this Data Collection,
-    returning the relevant data to a dict in the form of
-    {'items':<tot_items>, <Field Type>:<data_container_info>, ...}
+    returning the relevant data to a dict in the form of::
+
+        {'items':<tot_items>, <Field Type>:<data_container_info>, ...}
+
     where each key <Field Type> is the field type of a Data Container field
     that is possibly found after this definition in the next Data Block.
     each <data_container_info> gives a summary of a data container field::
@@ -258,9 +260,21 @@ def process_payload_type101(field_payload, field_ids=None):
 
 def fix_wordsize_zero(field_payload_regions, byte_offsets,
         data_key_total_bytes):
-    """
-    Fix Datakey data when Field Type 100 doesn't list word_size for one
-    or more data regions of a data type
+    """Fix Datakey data when Field Type 100 doesn't list word_size
+
+    In certain 1sc files, the word_size sub_field of Field Type 100 can be
+    0.  This function detects regions in field_payload_regions dict for
+    word_size==0 and changes word_size to the appropriate number of bytes
+    based on data_type codes.
+
+    field_payload_regions is modified in place.
+
+    Args:
+        field_payload_regions (dict): dict containing region info
+        byte_offsets (list): all starting byte offsets for all regions
+        data_key_total_bytes (int): total number of bytes in data container
+            that field_payload_regions is defining
+
     """
     # The following is based on two problemmatic files seen, having:
     #   0 where word_size should be
@@ -295,10 +309,14 @@ def process_payload_type100(field_payload, data_key_total_bytes,
 
     Process the payload of a 1sc Field Type 100, a description of the format
     of a particular Field Type of data container field.
-    returns the relevant data to a dict in the form of
-    {'regions':<all_regions_dict>}
-    where item <all_regions_dict> is in the form of
-    {<number>:<region_dict>, ..}
+    returns the relevant data to a dict in the form of::
+
+        {'regions':<all_regions_dict>}
+
+    where item <all_regions_dict> is in the form of::
+
+        {<number>:<region_dict>, ..}
+
     where each key <number> is a number from 0 to Total Regions - 1
     where each item <region_dict> is in the form of::
 
@@ -375,6 +393,17 @@ def process_payload_type100(field_payload, data_key_total_bytes,
 
 def process_data_region(region, payload, field_ids, data_types, visited_ids):
     """Process one region of one data container field.
+
+    Args:
+        region (dict): TODO
+        payload (bytes): TODO
+        field_ids (dict): keys are Field IDs, items are dicts containing
+            all data for that Field instance
+        data_types (dict): TODO
+        visited_ids (list): TODO
+
+    Returns:
+        dict: TODO
     """
     region_data = {}
     data_region_start = region['byte_offset']
@@ -461,9 +490,18 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
 
 def process_payload_data_container(
         field_info, data_types, field_ids, visited_ids):
-    """
+    """Process the payload of a 1sc data container field.
+
     Process the payload of a 1sc Field Type > 102, (a data container field,)
     returning the relevant data to a dict.
+
+    Args:
+        field_info (dict): TODO
+        data_types (dict): TODO
+        field_ids (dict): keys are Field IDs, items are dicts containing
+            all data for that Field instance
+        visited_ids (list): TODO
+
     """
     try:
         regions_list = []
