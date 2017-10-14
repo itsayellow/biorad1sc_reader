@@ -295,16 +295,16 @@ class Reader():
 
         img_min = min(img_data)
         img_max = max(img_data)
+        img_span = (img_max - img_min)
 
         # scale min/max to scale brightness
         if invert:
             # anchor at img_max if inverted img data
-            img_min = img_max - (img_max - img_min) * imgsc
+            img_min = img_max - img_span * imgsc
         else:
             # anchor at img_min if inverted img data
-            img_max = img_min + (img_max - img_min) * imgsc
+            img_max = img_min + img_span * imgsc
 
-        img_span = (img_max - img_min)
 
         if HAS_NUMPY:
             # scale brightness of pixels
