@@ -4,8 +4,8 @@ Examples
 .. code:: python
 
     # setup reader with input file
-    import bio1sc_reader
-    myreader = bio1sc_reader.Reader("my_biorad_file.1sc")
+    import biorad1sc_reader
+    myreader = biorad1sc_reader.Reader("my_biorad_file.1sc")
     
     # get list/dict of all metadata in 1sc file
     my_img_metadata = myreader.get_metadata()
