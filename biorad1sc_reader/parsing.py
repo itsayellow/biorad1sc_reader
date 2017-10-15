@@ -57,7 +57,7 @@ def unpack_double(byte_stream, endian="<"):
             ">" means big-endian unpacking
 
     Returns:
-        list: unpacked doubles
+        list: unpacked double numbers
     """
     num_double = len(byte_stream)//8
     out_double = struct.unpack(endian+"d"*num_double, byte_stream)
@@ -138,8 +138,8 @@ def process_payload_type102(field_payload, field_ids=None):
         dict: collection_info with the form::
 
             collection_info {
-                'collection_num_items': <integer>,
-                'collection_label': <string>,
+                'collection_num_items': <int num of items in collection>,
+                'collection_label': <str name of collection>,
                 'collection_ref': <uint32 Field ID of a Field Type 101>
             }
     """
@@ -185,9 +185,9 @@ def process_payload_type101(field_payload, field_ids=None):
         possible for the associated Collection in the form::
 
             collection_item_definitions {
-                'items':<tot_items>,
-                <Field1 Type>:<item_info1>,
-                <Field2 Type>:<item_info2>,
+                'items':<int tot_items>,
+                <Field1 Type>:<dict item_info1>,
+                <Field2 Type>:<dict item_info2>,
                 ...
             }
 
@@ -197,10 +197,10 @@ def process_payload_type101(field_payload, field_ids=None):
         a possible future data container field::
 
             item_info {
-                'num_regions': <integer>,
+                'num_regions': <int number of regions>,
                 'data_key_ref': <uint32 Field ID of a Field Type 100>,
-                'total_bytes': <integer>,
-                'label': <string>,
+                'total_bytes': <int total bytes in region>,
+                'label': <str name of item>,
             }
     """
     if field_ids is None:
@@ -309,24 +309,30 @@ def process_payload_type100(field_payload, data_key_total_bytes,
             instance
 
     Returns:
-        dict: regions dict, with the form::
+        dict: info dict, with the form::
 
-            {'regions':<all_regions_dict>}
+            info = {
+                'regions':<dict regions>
+            }
 
-        where item <all_regions_dict> is in the form of::
+        where dict regions is in the form of::
 
-            {<number>:<region_dict>, ..}
+            regions = {
+                <number1>:<dict region1>,
+                <number2>:<dict region2>,
+                ...
+            }
 
         where each key <number> is a number from 0 to Total Regions - 1
-        where each item <region_dict> is in the form of::
+        where each dict <region> is in the form of::
 
-            {
+            region = {
                 'data_type': <uint16 number coding for data type of region>,
-                'label': <string>,
-                'index': <index that orders data regions>,
-                'num_words': <number of words in region>,
-                'byte_offset': <byte offset from start of Data Container payload>,
-                'word_size':<number of bytes in each word>,
+                'label': <str name of region>,
+                'index': <int index that orders data regions>,
+                'num_words': <int number of words in region>,
+                'byte_offset': <int byte offset from start of Data Container payload>,
+                'word_size':<int number of bytes in each word>,
                 'ref_field_type':<uint16 Field Type of ref. if data_type is ref.>,
             }
     """
@@ -505,7 +511,7 @@ def process_payload_data_container(
             processed into the hierarchical output data
 
     Returns:
-        list: regions, where each region is of the form::
+        list: regions, where each item of list is a dict of the form::
 
             region = {
                 'raw': <bytes raw data from payload>
