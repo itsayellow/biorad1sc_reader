@@ -389,7 +389,16 @@ def process_data_region(region, payload, field_ids, field_types, visited_ids):
         visited_ids (list): uint32 Field IDs of fields that have been visited
 
     Returns:
-        dict: TODO
+        dict: comprised of the following structure::
+
+            region = {
+                'raw': <bytes raw data from payload>
+                'proc': <various unpacked/decoded numbers/strings from raw data>
+                'interp': <various interpreted version of proc data, or None
+                            if no interpretation possible. can also be list
+                            of another field's regions if region data is a
+                            reference to another field>
+            }
     """
     region_data = {}
     data_region_start = region['byte_offset']
@@ -483,12 +492,25 @@ def process_payload_data_container(
     returning the relevant data to a dict.
 
     Args:
-        field_info (dict): TODO
-        field_types (dict): TODO
+        field_info (dict): contains info about current field
+        field_types (dict): explanation of each Field Type from 'items'
+            returned from process_payload_type101
         field_ids (dict): keys are Field IDs, items are dicts containing
             all data for that Field instance
-        visited_ids (list): TODO
+        visited_ids (list): keeps track of all Field IDs that have been
+            processed into the hierarchical output data
 
+    Returns:
+        list: regions, where each region is of the form::
+
+            region = {
+                'raw': <bytes raw data from payload>
+                'proc': <various unpacked/decoded numbers/strings from raw data>
+                'interp': <various interpreted version of proc data, or None
+                            if no interpretation possible. can also be list
+                            of another field's regions if region data is a
+                            reference to another field>
+            }
     """
     try:
         regions_list = []
