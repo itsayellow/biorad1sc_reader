@@ -376,7 +376,7 @@ def process_payload_type100(field_payload, data_key_total_bytes,
     return field_info_payload
 
 
-def process_data_region(region, payload, field_ids, data_types, visited_ids):
+def process_data_region(region, payload, field_ids, field_types, visited_ids):
     """Process one region of one data container field.
 
     Args:
@@ -384,7 +384,8 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
         payload (bytes): bytes of the payload just for this region
         field_ids (dict): keys are Field IDs, items are dicts containing
             all data for that Field instance
-        data_types (dict): TODO
+        field_types (dict): explanation of each Field Type from 'items'
+            returned from process_payload_type101
         visited_ids (list): uint32 Field IDs of fields that have been visited
 
     Returns:
@@ -447,13 +448,13 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
                 # recurse into the data container field referenced
                 regions_list = process_payload_data_container(
                         field_info_ref,
-                        data_types,
+                        field_types,
                         field_ids,
                         visited_ids
                         )
                 data_interp = {}
                 data_interp['data'] = regions_list
-                data_interp['label'] = data_types[field_info_ref['type']]['label']
+                data_interp['label'] = field_types[field_info_ref['type']]['label']
                 data_interp['id'] = field_info_ref['id']
                 data_interp['type'] = field_info_ref['type']
 
@@ -475,7 +476,7 @@ def process_data_region(region, payload, field_ids, data_types, visited_ids):
 
 
 def process_payload_data_container(
-        field_info, data_types, field_ids, visited_ids):
+        field_info, field_types, field_ids, visited_ids):
     """Process the payload of a 1sc data container field.
 
     Process the payload of a 1sc Field Type > 102, (a data container field,)
@@ -483,7 +484,7 @@ def process_payload_data_container(
 
     Args:
         field_info (dict): TODO
-        data_types (dict): TODO
+        field_types (dict): TODO
         field_ids (dict): keys are Field IDs, items are dicts containing
             all data for that Field instance
         visited_ids (list): TODO
@@ -491,7 +492,7 @@ def process_payload_data_container(
     """
     try:
         regions_list = []
-        this_data_field = data_types[field_info['type']]
+        this_data_field = field_types[field_info['type']]
         data_key = field_ids[this_data_field['data_key_ref']]['regions']
         payload_len = len(field_info['payload'])
         data_key_len = this_data_field['total_bytes']
@@ -514,7 +515,7 @@ def process_payload_data_container(
                         region,
                         field_info['payload'][i*data_key_len:(i+1)*data_key_len],
                         field_ids,
-                        data_types,
+                        field_types,
                         visited_ids
                         )
                 regions_list.append({})

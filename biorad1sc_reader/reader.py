@@ -519,7 +519,7 @@ class Reader():
                 pass
             elif field_info['type'] == 102:
                 # collection definition
-                data_types = {}
+                field_types = {}
                 field_payload_info = process_payload_type102(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
@@ -531,7 +531,7 @@ class Reader():
                 field_payload_info = process_payload_type101(
                         field_info['payload'], field_ids=field_ids)
                 field_info.update(field_payload_info)
-                data_types = field_info['items']
+                field_types = field_info['items']
             elif field_info['type'] == 100:
                 # data keys (data format)
                 data_key_total_bytes = field_ids[field_info['id']]['data_key_total_bytes']
@@ -540,20 +540,20 @@ class Reader():
                         data_key_total_bytes, field_ids=field_ids)
                 field_info.update(field_payload_info)
                 field_ids[field_info['id']] = field_info
-            elif field_info['type'] in data_types:
+            elif field_info['type'] in field_types:
                 # data containers
                 if field_info['id'] not in visited_ids:
                     # if this ID was visited by hierarchical Reference, we don't
                     #   need to report it on its own at top-level
                     regions_list = process_payload_data_container(
                             field_info,
-                            data_types,
+                            field_types,
                             field_ids,
                             visited_ids
                             )
                     this_coll.append({})
                     this_coll[-1]['data'] = regions_list
-                    this_coll[-1]['label'] = data_types[field_info['type']]['label']
+                    this_coll[-1]['label'] = field_types[field_info['type']]['label']
                     this_coll[-1]['id'] = field_info['id']
                     this_coll[-1]['type'] = field_info['type']
                 else:
