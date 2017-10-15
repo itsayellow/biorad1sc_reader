@@ -21,7 +21,7 @@ def is_ascii(byte_stream):
         byte_stream (bytes): arbitrary length
 
     Returns:
-        Boolean: True if all bytes are printable ASCII codes or one of the
+        bool: True if all bytes are printable ASCII codes or one of the
         following ASCII codes: 0 (null), 9 (Tab), 10 (LF), 13 (CR);
         False otherwise.
 

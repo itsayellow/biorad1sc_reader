@@ -39,7 +39,7 @@ def save_u16_to_tiff(u16in, size, tiff_filename):
         u16in (list): u16int image pixel data
         size (tuple): (xsize, ysize) where xsize and ysize are integers
             specifying the size of the image in pixels
-        tiff_filename (string): filepath for the output TIFF file
+        tiff_filename (str): filepath for the output TIFF file
     """
 
     # takes  2-14ms currently for 696x520 (WITH numpy)
@@ -77,7 +77,7 @@ class Reader():
         """Initialize Reader class
 
         Args:
-            in_filename (string): filepath to 1sc file to read with this
+            in_filename (str): filepath to 1sc file to read with this
                 instance
 
         Raises:
@@ -118,7 +118,7 @@ class Reader():
         Raises Errors if File is not valid 1sc file.
 
         Args:
-            in_filename (string): filepath to 1sc file to read with object
+            in_filename (str): filepath to 1sc file to read with object
                 instance
 
         Raises:
@@ -149,11 +149,12 @@ class Reader():
         region_name in item
 
         Args:
-            item (dict): TODO
-            region_name (string): TODO
+            item (list): list of regions from get_metadata() or
+                get_metadata_compac()
+            region_name (str): region label to search for
 
         Returns:
-            bytes: TODO
+            various: whatever is contained in 'data' key of region dict
         """
         return next(x['data'] for x in item if x['label'] == region_name)
 
@@ -176,12 +177,14 @@ class Reader():
         Also ability to invert brightness.
 
         Args:
-            invert (Boolean): True to invert the brightness scale of output
-                image data compared to 1sc image data (black <-> white)
+            invert (bool, optional): True to invert the brightness scale of
+                output image data compared to 1sc image data (black <-> white)
 
         Returns:
             tuple: (xsize, ysize, image_data) where xsize and ysize are
-            integers specifying the size of the image, and image_data is
+            integers specifying the size of the image.
+            
+            image_data is
             a list of uint16 numbers comprising the image data starting
             from upper-left and progressing to lower-right.
 
@@ -246,13 +249,13 @@ class Reader():
 
 
     def save_img_as_tiff(self, tiff_filename, invert=False):
-        """
-        Save image data from file as tiff.
+        """Save image data as TIFF image
+
         Also ability to invert brightness
 
         Args:
-            tiff_filename (string): filepath for output TIFF file
-            invert (Boolean): True to invert the brightness scale of output
+            tiff_filename (str): filepath for output TIFF file
+            invert (bool, optional): True to invert the brightness scale of output
                 TIFF image compared to 1sc image data (black <-> white)
         """
         # takes ~14ms currently for 696x520 (WITH numpy)
@@ -273,18 +276,27 @@ class Reader():
 
 
     def save_img_as_tiff_sc(self, tiff_filename, imgsc=1.0, invert=False):
-        """
-        Save image data from file as tiff, with brightness scale expanded from
-        min to max.
+        """Save image data as TIFF image, with brightness dynamic range expanded
+
         Also ability to invert brightness
 
         Args:
-            tiff_filename (string): filepath for output TIFF file
-            imgsc (float): expand brightness scale. Value of 1.0 means that
-                dynamic range of output TIFF will be maximum, with brightest
-                pixel having value 65535 and darkest pixe having value 0.
-            invert (Boolean): True to invert the brightness scale of output
-                TIFF image compared to 1sc image data (black <-> white)
+            tiff_filename (str): filepath for output TIFF file
+            imgsc (float, optional): Expand brightness scale. Value of 1.0
+                means that dynamic range of output TIFF will be maximum, with
+                brightest pixel having value 65535 and darkest pixel having
+                value 0.
+
+                imgsc > 1.0 will cause the brightness dynamic range to be
+                expanded less than imgsc=1.0, and imgsc < 1.0 will cause the
+                dynamic range to be expanded more than the imgsc=1.0 case.
+
+                For non-inverted images, the pixel with the minimum brightness
+                will always be 0.  For inverted images, the pixel with the
+                maximum brightness will always be 65535.
+
+            invert (bool, optional): True to invert the brightness scale of
+                output TIFF image compared to 1sc image data (black <-> white)
         """
         # takes  ~45ms currently for 696x520 (WITH numpy)
         # takes ~250ms currently for 696x520 (NO numpy)
@@ -423,7 +435,48 @@ class Reader():
         """Fetch All Metadata in File, return hierarchical dict/list
 
         Returns:
-            list: TODO
+            list: collections where each item in list collections is a dict::
+
+                collection_dict = {
+                    'data':<list items>
+                    'label':'<str name of collection>'
+                }
+
+            where items is a list of dicts, each with the structure::
+
+                item_dict = {
+                    'data':<list regions>
+                    'id':<uint32 Field ID>
+                    'label':'<str name of item>'
+                    'type':'<int Field Type>'
+                }
+
+            where regions is a list of dicts, each with the structure::
+
+                region_dict = {
+                    'data': <dict data_of_region>
+                    'dtype': <str written type of data>
+                    'dtype_num': <int data type code of data>
+                    'key_iter': <??>
+                    'label': <str name of region>
+                    'num_words': <int number of words in data>
+                    'region_idx': <int 1sc-given index>
+                    'word_size': <int number of bytes per word of data>
+                }
+
+            where data_of_region has the structure::
+
+                data_of_region = {
+                    'raw': <bytes raw bytes, unconverted data>
+                    'proc': <various unpacked/decoded data from bytes>
+                    'interp': <various 'interpreted' data>
+                }
+
+            data_of_region['interp'] can also be another item_dict, if this
+                region contained a reference to another field, creating
+                a hierarchical structure.
+
+            e.g. ``collections[0]['data'][0]['data'][0]['label'] = 'array'``
 
         Raises:
            BioRadParsingError: if there was an error in parsing the file
@@ -523,10 +576,13 @@ class Reader():
         available
 
         Args:
-            item (dict): TODO
+            item (dict): item_dict from get_metadata(), e.g.
+                collections[<num>]['data'][<num>]
 
         Returns:
-            dict: TODO
+            dict: compact representation of input dict for
+                get_metadata_compact()
+
         """
         item_compact = {}
         item_compact['label'] = item['label']
@@ -563,17 +619,35 @@ class Reader():
         available.
 
         Returns:
-            dict: collections_compact with structure::
+            dict: collections::
 
-                {
-                    '<collection_name>:<collection_dict>
+                collections = {
+                    '<collection name1>':<dict collection_dict1>
+                    '<collection name2>':<dict collection_dict2>
+                    ...
+                }
+            
+            where each collection_dict is::
+
+                collection_dict = {
+                    '<name of item1>':<list regions1>
+                    '<name of item2>':<list regions2>
+                    ...
                 }
 
-            where collection_dict is::
+            where regions is a list of dicts, each with the structure::
 
-                {
+                region_dict = {
+                    'data': <various most interpreted version possible of data>
+                    'label': <str name of region>
                 }
 
+            region_dict['data'] can also be another regions list, if this
+                region contained a reference to another field, creating
+                a hierarchical structure.
+
+            e.g. ``collections['Overlay Header']['OverlaySaveArray'][0]['label]
+            = 'array'``
         """
         collections = self.get_metadata()
         collections_compact = {}
