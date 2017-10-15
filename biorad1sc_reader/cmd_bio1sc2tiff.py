@@ -36,7 +36,9 @@ def get_cmdline_args():
         help='Invert brightness scale of image.')
     parser.add_argument(
         '-o', '--output_filename', action='store',
-        help='Name of output image. (Defaults to <input_image>.tif)')
+        help='Name of output image. (Defaults to <input_image>.tif)'
+        ' in same directory as source file.'
+        )
 
     args = parser.parse_args()
 

@@ -39,7 +39,7 @@ Optional Arguments
 ``-i, --invert``
     Invert brightness scale of image.
 ``-o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME``
-     Name of output image. (Defaults to <input_image>.tif)
+     Name of output image. (Defaults to <input_image>.tif) in same directory as source file.
 
 ----
 
