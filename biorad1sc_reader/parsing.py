@@ -50,11 +50,11 @@ def unpack_double(byte_stream, endian="<"):
 
     Unpack a bytes object into list of double-precision
     floating-point numbers.  Each 8 input bytes decodes to a double.
-    endian="<" means little-endian unpacking
-    endian=">" means big-endian unpacking
 
     Args:
         byte_stream (bytes): length is a multiple of 8
+        endian (char, optional): "<" means little-endian unpacking, and
+            ">" means big-endian unpacking
 
     Returns:
         list: unpacked doubles
@@ -69,11 +69,11 @@ def unpack_uint16(byte_stream, endian="<"):
 
     Unpack a bytes object into list of 16-bit unsigned integers.
     Each 2 input bytes decodes to a uint16.
-    endian="<" means little-endian unpacking
-    endian=">" means big-endian unpacking
 
     Args:
         byte_stream (bytes): length is a multiple of 2
+        endian (char, optional): "<" means little-endian unpacking, and
+            ">" means big-endian unpacking
 
     Returns:
         list: unpacked uint16 numbers
@@ -88,11 +88,11 @@ def unpack_uint32(byte_stream, endian="<"):
 
     Unpack a bytes object into list of 32-bit unsigned integers.
     Each 4 input bytes decodes to a uint32.
-    endian="<" means little-endian unpacking
-    endian=">" means big-endian unpacking
 
     Args:
         byte_stream (bytes): length is a multiple of 4
+        endian (char, optional): "<" means little-endian unpacking, and
+            ">" means big-endian unpacking
 
     Returns:
         list: unpacked uint32 numbers
@@ -107,11 +107,11 @@ def unpack_uint64(byte_stream, endian="<"):
 
     Unpack a bytes object into list of 64-bit unsigned integers.
     Each 8 input bytes decodes to a uint64.
-    endian="<" means little-endian unpacking
-    endian=">" means big-endian unpacking
 
     Args:
         byte_stream (bytes): length is a multiple of 8
+        endian (char, optional): "<" means little-endian unpacking, and
+            ">" means big-endian unpacking
 
     Returns:
         list: unpacked uint64 numbers
@@ -125,13 +125,7 @@ def process_payload_type102(field_payload, field_ids=None):
     """Process the payload of a 1sc Field Type 102
 
     Process the payload of a 1sc Field Type 102, a Collection definition,
-    returning the relevant data to a dict in the form of::
-
-        {
-            'collection_num_items': <integer>,
-            'collection_label': <string>,
-            'collection_ref': <uint32 Field ID>
-        }
+    and return and informational dict.
 
     Args:
         field_payload (bytes): all the contents of a Field Type 102
@@ -141,8 +135,13 @@ def process_payload_type102(field_payload, field_ids=None):
             instance
 
     Returns:
-        dict: data assigned to the following keys: 'collection_num_items',
-        'collection_label', 'collection_ref',
+        dict: collection_info with the form::
+
+            collection_info {
+                'collection_num_items': <integer>,
+                'collection_label': <string>,
+                'collection_ref': <uint32 Field ID of a Field Type 101>
+            }
     """
     if field_ids is None:
         field_ids = {}
@@ -171,21 +170,8 @@ def process_payload_type101(field_payload, field_ids=None):
     """Process the payload of a 1sc Field Type 101
 
     Process the payload of a 1sc Field Type 101, a summary of every type of
-    Data Container type available in this Data Collection,
-    returning the relevant data to a dict in the form of::
-
-        {'items':<tot_items>, <Field Type>:<data_container_info>, ...}
-
-    where each key <Field Type> is the field type of a Data Container field
-    that is possibly found after this definition in the next Data Block.
-    each <data_container_info> gives a summary of a data container field::
-
-        {
-            'num_regions': <integer>,
-            'data_key_ref': <uint32 linking to a Field Type 100>,
-            'total_bytes': <integer>,
-            'label': <string>,
-        }
+    Data Container type available in this Data Collection, and return
+    information dict.
 
     Args:
         field_payload (bytes): all the contents of a Field Type 101
@@ -195,8 +181,27 @@ def process_payload_type101(field_payload, field_ids=None):
             instance
 
     Returns:
-        dict: dict of dicts, containing a summary all data_container item types
-            possible for the associated Collection
+        dict: dict containing a summary all data_container item types
+        possible for the associated Collection in the form::
+
+            collection_item_definitions {
+                'items':<tot_items>,
+                <Field1 Type>:<item_info1>,
+                <Field2 Type>:<item_info2>,
+                ...
+            }
+
+        where each key <Field Type> is the uint16 Field Type of a Data
+        Container field that is possibly found after this definition in the
+        next Data Block.  Each <item_info> gives a summary of how to process
+        a possible future data container field::
+
+            item_info {
+                'num_regions': <integer>,
+                'data_key_ref': <uint32 Field ID of a Field Type 100>,
+                'total_bytes': <integer>,
+                'label': <string>,
+            }
     """
     if field_ids is None:
         field_ids = {}
@@ -293,27 +298,8 @@ def process_payload_type100(field_payload, data_key_total_bytes,
     """Process the payload of a 1sc Field Type 100
 
     Process the payload of a 1sc Field Type 100, a description of the format
-    of a particular Field Type of data container field.
-    returns the relevant data to a dict in the form of::
-
-        {'regions':<all_regions_dict>}
-
-    where item <all_regions_dict> is in the form of::
-
-        {<number>:<region_dict>, ..}
-
-    where each key <number> is a number from 0 to Total Regions - 1
-    where each item <region_dict> is in the form of::
-
-        {
-            'data_type': <uint16 number coding for data type of region>,
-            'label': <string>,
-            'index': <index that orders data regions>,
-            'num_words': <number of words in region>,
-            'byte_offset': <byte offset from start of Data Container payload>,
-            'word_size':<number of bytes in each word>,
-            'ref_field_type':<uint16 Field Type of ref. if data_type is ref.>,
-        }
+    of a particular Field Type of data container field.  Return dict of
+    dict containing region info.
 
     Args:
         field_payload (bytes): all the contents of a Field Type 100
@@ -323,8 +309,26 @@ def process_payload_type100(field_payload, data_key_total_bytes,
             instance
 
     Returns:
-        dict: dict of dict of dicts containing format of a data container field
-        regions
+        dict: regions dict, with the form::
+
+            {'regions':<all_regions_dict>}
+
+        where item <all_regions_dict> is in the form of::
+
+            {<number>:<region_dict>, ..}
+
+        where each key <number> is a number from 0 to Total Regions - 1
+        where each item <region_dict> is in the form of::
+
+            {
+                'data_type': <uint16 number coding for data type of region>,
+                'label': <string>,
+                'index': <index that orders data regions>,
+                'num_words': <number of words in region>,
+                'byte_offset': <byte offset from start of Data Container payload>,
+                'word_size':<number of bytes in each word>,
+                'ref_field_type':<uint16 Field Type of ref. if data_type is ref.>,
+            }
     """
     if field_ids is None:
         field_ids = {}
