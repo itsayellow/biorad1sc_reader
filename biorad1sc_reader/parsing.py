@@ -283,8 +283,13 @@ def fix_wordsize_zero(field_payload_regions, byte_offsets,
         pay_reg = field_payload_regions[pay_reg_num]
         if pay_reg['word_size'] == 0:
             # broken so fix
-            if pay_reg['data_type'] in REGION_DATA_TYPE_BYTES:
-                pay_reg['word_size'] = REGION_DATA_TYPE_BYTES[pay_reg['data_type']]
+            reg_dtype = pay_reg['data_type']
+            reg_label = pay_reg['label']
+            if reg_dtype in REGION_DATA_TYPE_BYTES:
+                if isinstance(REGION_DATA_TYPE_BYTES[reg_dtype], dict):
+                    pay_reg['word_size'] = REGION_DATA_TYPE_BYTES[reg_dtype][reg_label]
+                else:
+                    pay_reg['word_size'] = REGION_DATA_TYPE_BYTES[reg_dtype]
             else:
                 # if we don't know word_size from data_type, fall back on this
                 #   method, not 100% reliable

@@ -35,6 +35,8 @@ REGION_DATA_TYPES = {
         }
 
 # used if Word Size region in Field Type 100 is inexplicably 0
+# Some data types are not unique.  Non-uniqe data_types are represented here
+#   as dicts.  Use region label for non-unique to determine word_size 
 REGION_DATA_TYPE_BYTES = {
         1:1,
         2:1,
@@ -57,28 +59,22 @@ REGION_DATA_TYPE_BYTES = {
         120:8,
         131:12,
         1000:4,
-        #1001:8,   end, first, last, start, taglist
-        #1001:24,  cal
+        1001:{'end':8, 'first':8, 'last':8, 'start':8, 'taglist':8, 'cal':24},
         1002:24,
-        #1003:8,   faint_loc, small_loc, first, last
-        #1003:16,  bounds, where
-        #1004:8,   tagdef_list
-        #1004:16,  bkgd_box, large_box, in, out
+        1003:{'faint_loc':8, 'small_loc':8, 'first':8, 'last':8, 'bounds':16, 'where':16},
+        1004:{'tagdef_list':8, 'bkgd_box':16, 'large_box':16, 'in':16, 'out':16},
         1005:64,
-        #1006:12,  runs
-        #1006:640, qinf
+        1006:{'runs':12, 'qinf':640},
         1007:8,
         1008:8,
         1009:16,
-        #1010:4,   this
-        #1010:144, params
+        1010:{'this':4, 'params':144},
         1011:8,
         1012:16,
         1016:440,
         1017:44,
         1018:32,
-        #1019:8,   a, r
-        #1019:36,  sample_list
+        1019:{'a':8, 'r':8, 'sample_list':36},
         1020:32,
         1021:56,
         1023:24,
