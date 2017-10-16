@@ -16,7 +16,15 @@ s303 2017-06-08 10hr 59min.1sc
 -------------------------------------------------------------------------------
 The following code was used:
 
+    # DELETEME: DEBUG
+    with open("data_types.txt", "a") as out_fh:
+        for region_key in field_payload_regions:
+            region = field_payload_regions[region_key]
+            #if region['word_size'] != 0:
+            print("data_type: % 5d, word_size: % 5d, label: %s"%(region['data_type'],region['word_size'], region['label']), file=out_fh)
 
+in parsing.py, function process_payload_type100()
+before the code: 'if has_wordsize_zero:'
 
 -------------------------------------------------------------------------------
 The following unique data_type/word_size combinations were found:
