@@ -13,11 +13,13 @@ biorad1sc_reader will run 4x to 5x faster.
 Also installs the following command-line executables:
 
 ``bio1sc2tiff``
-    converts \*.1sc files to \*.tif images.
+    converts \*.1sc files to \*.tif images. (type ``bio1sc2tiff --help``)
 ``bio1scmeta``
     reports all metadata contained in each \*.1sc file to a text file.
+    (type ``bio1scmeta --help``)
 ``bio1scread``
     reports details on a \*.1sc file's internal structure.
+    (type ``bio1scread --help``)
 
 **************
 Current Status
@@ -27,11 +29,6 @@ Current Status
 
   * API subject to change
   * No known problems in operation.
-
-* Installs command-line executables
-
-  * bio1sc2tiff (type ``bio1sc2tiff --help``)
-  * bio1scmeta (type ``bio1scmeta --help``)
 
 * Reading Image Data OK
 * Saving Image from file to new TIFF file OK
