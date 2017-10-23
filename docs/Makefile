@@ -60,3 +60,5 @@ $(SPHINXBUILDTARGETS): Makefile cmdline_utils.rst
 #  linkcheck   to check all external links for integrity
 #  doctest     to run all doctests embedded in the documentation (if enabled)
 #  coverage    to run coverage check of the documentation (if enabled)
+
+# vim: nowrap noexpandtab sw=8 sts=0
