@@ -11,7 +11,7 @@ with open(os.path.join(here, 'README.rst'), 'r') as f:
 
 setup(
         name='biorad1sc_reader',
-        version='0.5',
+        version='0.5.1',
         description='Allows reading Bio-Rad *.1sc image/analysis files.',
         long_description=long_description,
         url='http://github.com/itsayellow/biorad1sc_reader/',
