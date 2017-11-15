@@ -77,8 +77,8 @@ class Reader():
         """Initialize Reader class
 
         Args:
-            in_filename (str): filepath to 1sc file to read with this
-                instance
+            in_filename (str or file-like obj): filepath (str) or file-like
+                object, 1sc file to read with this instance
 
         Raises:
             BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
@@ -97,7 +97,10 @@ class Reader():
         self.endian = "<"
 
         if in_filename is not None:
-            self.open_file(in_filename)
+            if isinstance(in_filename, str):
+                self.open_file(in_filename)
+            else:
+                self.read_stream(in_filename)
 
 
     def reset(self):
@@ -133,7 +136,23 @@ class Reader():
         self.filedir = os.path.dirname(self.filename)
 
         with open(self.filename, 'rb') as in_fh:
-            self.in_bytes = in_fh.read()
+            self.read_stream(in_fh)
+
+
+    def read_stream(self, in_fh):
+        """Read file-like object into memory.
+
+        Raises Errors if File is not valid 1sc file.  Give it output of
+        open(<filename>, 'rb')
+
+        Args:
+            in_fh (byte stream): filehandle to 1sc filedata to read with object
+                instance.  e.g. result from open(<filename>, 'rb')
+
+        Raises:
+            BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
+        """
+        self.in_bytes = in_fh.read()
 
         # test magic number of file, get pointers to start, len of all major
         #   data blocks in file
