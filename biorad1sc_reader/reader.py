@@ -104,11 +104,11 @@ class Reader():
         # "<" = little-endian, ">" = big-endian
         self.endian = "<"
 
-        if in_filename is not None:
-            if isinstance(in_filename, str):
-                self.open_file(in_filename)
+        if in_file is not None:
+            if isinstance(in_file, str):
+                self.open_file(in_file)
             else:
-                self.read_stream(in_filename)
+                self.read_stream(in_file)
 
 
     def reset(self):
