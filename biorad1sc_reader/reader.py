@@ -72,12 +72,20 @@ class Reader():
     data from it, including image.
 
     Assumes the 1sc file does not change while this instance has it open.
+
+    Instantiation:
+        Args:
+            in_file (str or file-like obj): filepath (str) or file-like
+                object, 1sc file to read with this instance
+
+        Raises:
+            BioRadInvalidFileError if file is not a valid Bio-Rad 1sc file
     """
-    def __init__(self, in_filename=None):
+    def __init__(self, in_file=None):
         """Initialize Reader class
 
         Args:
-            in_filename (str or file-like obj): filepath (str) or file-like
+            in_file (str or file-like obj): filepath (str) or file-like
                 object, 1sc file to read with this instance
 
         Raises:
@@ -142,8 +150,8 @@ class Reader():
     def read_stream(self, in_fh):
         """Read file-like object into memory.
 
-        Raises Errors if File is not valid 1sc file.  Give it output of
-        open(<filename>, 'rb')
+        Raises Errors if File is not valid 1sc file.  Give it object returned
+        by: open(<filename>, 'rb')
 
         Args:
             in_fh (byte stream): filehandle to 1sc filedata to read with object
