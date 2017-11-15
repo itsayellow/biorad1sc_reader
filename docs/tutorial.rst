@@ -20,10 +20,24 @@ of the class initialization
 
     myreader = biorad1sc_reader.Reader("path/to/some/file.1sc")
 
+You can also initialize the class with a file-like object set for read/binary
+access:
+
+.. code:: python
+
+    my1sc_fh = open("path/to/some/file.1sc", 'rb')
+    myreader = biorad1sc_reader.Reader(my1sc_fh)
+
 After you instance the class ``Reader`` into your own variable, you can use
 that to access and decode the 1sc file's data.
 
-To save the image data as a 16-bit TIFF with no processing, use
+For example, to get a succinct data structure of all metadata in 1sc file:
+
+.. code:: python
+
+    my_img_metadata = myreader.get_metadata_compact()
+
+To save the image data as a 16-bit TIFF with no processing, use:
 
 .. code:: python
 

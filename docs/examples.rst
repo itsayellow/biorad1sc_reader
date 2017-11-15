@@ -3,10 +3,16 @@ Examples
 
 .. code:: python
 
-    # setup reader with input file
+    # import library
     import biorad1sc_reader
+
+    # setup reader with input file
     myreader = biorad1sc_reader.Reader("my_biorad_file.1sc")
-    
+
+    # setup reader with file-like object
+    my2sc_fh = open("my_biorad_file2.1sc", 'rb')
+    myreader2 = biorad1sc_reader.Reader(my2sc_fh)
+
     # get list/dict of all metadata in 1sc file
     my_img_metadata = myreader.get_metadata()
 
