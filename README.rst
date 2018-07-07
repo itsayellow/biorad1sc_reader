@@ -105,7 +105,7 @@ Related Info
 
   * Generates 1sc files from Bio-Rad instruments.
 
-* `Bio Formats: Bio-Rad Gel 1sc file format <https://docs.openmicroscopy.org/bio-formats/5.6.0/formats/bio-rad-gel.html>`_
+* `Bio Formats: Bio-Rad Gel 1sc file format <https://docs.openmicroscopy.org/bio-formats/5.9.0/formats/bio-rad-gel.html>`_
 * `BioRadGelReader.java source <https://github.com/openmicroscopy/bioformats/blob/develop/components/formats-gpl/src/loci/formats/in/BioRadGelReader.java>`_
 * `Forum post: Bio-Format 1sc to jpg batch conversion <https://www.openmicroscopy.org/community/viewtopic.php?f=13&t=2400>`_
 * `reStructuredText Syntax <http://docutils.sourceforge.net/rst.html>`_
