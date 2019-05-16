@@ -66,7 +66,7 @@ Current Status
 Examples
 ********
 
-::
+.. code:: bash
 
     # setup reader with input file
     import bio1sc_reader
